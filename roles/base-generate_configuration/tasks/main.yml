@@ -1,0 +1,8 @@
+---
+- name: Write inventory
+  template:
+    src: "inventory/inventory.j2"
+    dest: "{{ playbook_dir }}/inventory/inventory"
+
+# Ansible doesn't do meta in handlers yet so just do it all
+- meta: refresh_inventory

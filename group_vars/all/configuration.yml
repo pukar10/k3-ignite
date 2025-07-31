@@ -1,0 +1,65 @@
+cluster_name: k3s-hybrid-cluster
+k3s_version: v1.29.4+k3s1
+
+proxmox:
+  api_host: proxmox.example.com
+  api_user: root@pam
+  api_token_id: ansible
+  api_token_secret: "{{ vault_proxmox_token }}"
+  verify_ssl: false
+
+vm_defaults:
+  template: ubuntu-22.04-cloudinit
+  clone_type: full
+  cores: 4
+  memory: 8192
+  disk_size: 100G
+  disk_storage: local-lvm
+  net_bridge: vmbr0
+  net_model: virtio
+  vlan_tag: 20
+  ssh_user: ubuntu
+  ssh_key_file: ~/.ssh/id_rsa.pub
+  cloud_init:
+    ssh_keys:
+      - "{{ lookup('file', ssh_key_file) }}"
+    password: ubuntu  # or disabled for ssh-only
+    packages:
+      - qemu-guest-agent
+      - curl
+      - vim
+      - ceph-common
+
+nodes:
+  - name: k3s-node-1
+    hostname: k3s-node-1
+    ip: 10.10.0.11
+    roles:
+      - master
+      - worker
+      - storage
+    rook:
+      osd_devices:
+        - /dev/sdb
+
+  - name: k3s-node-2
+    hostname: k3s-node-2
+    ip: 10.10.0.12
+    roles:
+      - master
+      - worker
+      - storage
+    rook:
+      osd_devices:
+        - /dev/sdb
+
+  - name: k3s-node-3
+    hostname: k3s-node-3
+    ip: 10.10.0.13
+    roles:
+      - master
+      - worker
+      - storage
+    rook:
+      osd_devices:
+        - /dev/sdb

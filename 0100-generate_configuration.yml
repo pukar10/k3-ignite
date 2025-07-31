@@ -1,0 +1,1 @@
+Generates the inventory file using the configuration.yml against the inventory.j2 template
