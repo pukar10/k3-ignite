@@ -1,0 +1,2 @@
+1. apply metallb yaml
+2. apply metallb-config.yaml (address pool)

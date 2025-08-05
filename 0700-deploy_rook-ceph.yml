@@ -1,0 +1,5 @@
+1. Add another disk to each VM
+2. Add two labels for each storage node
+3. Install rook-ceph operator
+4. Create values.yaml for rook-ceph-cluster
+5. Install rook-ceph-cluster chart with values.yaml
