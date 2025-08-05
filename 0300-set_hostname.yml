@@ -1,0 +1,5 @@
+# Set hostnames then copy ssh key to each VM
+
+# k3-node-1 -> k3-node-1-backend
+
+# sudo hostnamectl set-hostname k3-node-1

@@ -1,3 +1,5 @@
+# Add hostname: k3-node-1-backend to group [nodes]
+
 ---
 - name: Write inventory
   template:
