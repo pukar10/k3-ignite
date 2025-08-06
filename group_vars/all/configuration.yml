@@ -25,25 +25,24 @@ cloudinit_template:
   img_file: ""
 
 
-# ==== Use the proxmox_create_token script to generate the api_token_id and api_token_secret ====
+# ==== Proxmox API ====
+# Use the proxmox_create_token.sh script to generate the api_token_id and api_token_secret
 proxmox:
   api_host: "192.168.1.30"
   api_user: "ansible@pve"
   api_token_id: "ansible@pve!ansible"
   api_token_secret: "59ede7aa-3fff-45cb-9c6c-2f86471e9d93"
   validate_certs: false
-  # ssh user for proxmox
   ssh_user: root
-  # Hosts in the proxmox cluster
   nodes:
     - { name: "proxmox1" }
     - { name: "proxmox2" }
     - { name: "proxmox3" }
-  # Default placement strategy if a group doesn't override it
   placement:
     strategy: round_robin
 
-# ==== VM Network defaults used for cloud-init IP config ====
+
+# ==== Network defaults for cloud-init ====
 network:
   cidr: 24
   gateway_ip: 192.168.1.1
@@ -51,7 +50,8 @@ network:
   ntp_ip: 192.168.1.1
   domain: lab
 
-# ===== Defaults for VMs (can be overridden per group or per VM) =====
+
+# ===== VM Defaults (inherited by groups/overrides) =====
 # If source_template is specified it will use that, if not it will use iso_image
 vm_defaults:
   storage: "local-lvm"
@@ -60,15 +60,19 @@ vm_defaults:
   cores: 5
   memory_gib: 8
   disk_gb: 100
-  source_template: ""
-  iso_image: "ubuntu-24.04.2-live-server-amd64.iso"                    
+  template_name: "ubuntu-24.04-noble-ci-template"
+  ciuser: "psubedi"
+  ssh_authorized_keys: []
   vmid_autogenerate: true
+  cpu_type: "host"
+  ballon: 0
+  hotplug: "disk,network,usb,memory,cpu"
+  multiqueue: 4
+  scsihw: "virtio-scsi-single"
+  onboot: true
 
 
-# ===== High-level declaration: groups + counts =====
-# This says: create k3-node-01..k3-node-03, spread across pve1/pve2/pve3 (round-robin).
-# You can override per-VM CPU/mem/node as needed.
-# name_pad -> k3-node-01, -02, ...
+# ===== VM groups -> produces k3-node-1...3 across nodes =====
 vm_groups:
   - name_prefix: "k3-node"
     count: 3
@@ -81,7 +85,6 @@ vm_groups:
       memory_gib: 8
       disk_gb: 100
     overrides:
-      # You can target by index or final name if you prefer. Pin to host by using node: <host_name>. Goes round robin.
       - index: 1
         hostname: "k3-node-1"
         ip: 192.168.1.40
@@ -94,19 +97,3 @@ vm_groups:
         hostname: "k3-node-3"
         ip: 192.168.1.42
         node: "proxmox3"
-
-k3_nodes:
-  - name: k3-node-1
-    hostname: k3-node-1
-    ip: 192.168.1.40
-    ssh_user: psubedi
-
-  - name: k3-node-2
-    hostname: k3s-node-2
-    ip: 192.168.1.41
-    ssh_user: psubedi
-
-  - name: k3-node-3
-    hostname: k3s-node-3
-    ip: 192.168.1.42
-    ssh_user: psubedi
