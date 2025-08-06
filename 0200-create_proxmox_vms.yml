@@ -1,0 +1,4 @@
+---
+- hosts: local
+  roles:
+    - proxmox-create_vms

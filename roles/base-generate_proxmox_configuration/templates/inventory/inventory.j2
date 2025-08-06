@@ -1,0 +1,16 @@
+# Generated inventory
+[local]
+localhost ansible_connection=local ansible_python_interpreter=auto_silent
+
+[primary_host]
+{{ proxmox.api_host }} hostname={{ proxmox.nodes[0].name }}
+
+[k3_nodes]
+{% for n in k3_nodes %}
+{{ n.ip }} hostname={{ n.hostname | default(n.name) }}
+{% endfor %}
+
+[all:vars]
+ansible_user=admin
+gateway_ip={{ network.gateway_ip  }}
+ntp_ip={{ network.ntp_ip }}

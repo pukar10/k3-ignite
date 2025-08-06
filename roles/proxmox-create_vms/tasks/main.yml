@@ -1,0 +1,9 @@
+---
+- name: Create K3s-ready VM on Proxmox
+  hosts: localhost
+  gather_facts: no
+  collections:
+    - community.general
+
+  vars_files:
+    - vars/vm.yml

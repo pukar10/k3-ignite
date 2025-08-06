@@ -1,0 +1,9 @@
+---
+- name: Build Ubuntu cloud-init template on Proxmox
+  hosts: proxmox_template_host
+  gather_facts: false
+  become: true
+
+  roles:
+    - role: pve_cloud_image     # downloads/ensures the cloud image
+    - role: pve_ci_template     # builds/updates the cloud-init template

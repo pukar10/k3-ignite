@@ -1,0 +1,114 @@
+---
+# Build/update the cloud-init template (OVMF/EFI + cloudinit drive)
+- name: Derive image file path when not provided
+  ansible.builtin.set_fact:
+    _ci_img_file: >-
+      {{ (cloudinit_template.img_file | length > 0)
+         | ternary(cloudinit_template.img_file,
+                   cloudinit_template.img_dir ~ '/' ~ (cloudinit_template.img_url | basename)) }}
+
+- name: Check if VMID exists
+  ansible.builtin.command: "qm status {{ cloudinit_template.template_id }}"
+  register: vm_status
+  changed_when: false
+  failed_when: vm_status.rc not in [0,2]
+  ignore_errors: true
+  tags: [create,update]
+
+- name: Create VM shell if missing
+  ansible.builtin.command: >
+    qm create {{ cloudinit_template.template_id }}
+    --name {{ cloudinit_template.template_name }}
+    --memory {{ cloudinit_template.ci_memory_mb }}
+    --sockets {{ cloudinit_template.ci_sockets }}
+    --cores {{ cloudinit_template.ci_cores }}
+    --machine q35
+    --bios ovmf
+    --net0 virtio,bridge={{ cloudinit_template.bridge }},firewall=0
+    --scsihw virtio-scsi-single
+    --agent enabled=1
+    --vga none
+    --ostype l26
+  when: vm_status.rc != 0
+  register: qm_create
+  changed_when: qm_create.rc == 0
+  tags: [create]
+
+- name: Ensure EFI disk with pre-enrolled keys
+  ansible.builtin.command: >
+    qm set {{ cloudinit_template.template_id }}
+    --efidisk0 {{ cloudinit_template.storage }}:1,pre-enrolled-keys=1
+  register: set_efi
+  changed_when: set_efi.rc == 0 and ('update VM' in set_efi.stdout or set_efi.stdout == '')
+  tags: [update]
+
+- name: Read current config
+  ansible.builtin.command: "qm config {{ cloudinit_template.template_id }}"
+  register: qm_cfg
+  changed_when: false
+  tags: [update]
+
+- name: Import cloud image as disk (once)
+  ansible.builtin.command: >
+    qm importdisk {{ cloudinit_template.template_id }} {{ _ci_img_file }} {{ cloudinit_template.storage }} -format qcow2
+  when: "'scsi0:' not in qm_cfg.stdout"
+  register: importdisk
+  changed_when: importdisk.rc == 0
+  tags: [import]
+
+- name: Attach imported disk as scsi0
+  ansible.builtin.command: >
+    qm set {{ cloudinit_template.template_id }} --scsi0 {{ cloudinit_template.storage }}:vm-{{ cloudinit_template.template_id }}-disk-0
+  when: "'scsi0:' not in qm_cfg.stdout"
+  register: attach_scsi0
+  changed_when: attach_scsi0.rc == 0
+  tags: [import]
+
+- name: Set boot to scsi0
+  ansible.builtin.command: "qm set {{ cloudinit_template.template_id }} --boot order=scsi0"
+  register: set_boot
+  changed_when: set_boot.rc == 0 and ('update VM' in set_boot.stdout or set_boot.stdout == '')
+  tags: [update]
+
+- name: Resize root disk to {{ cloudinit_template.disk_size_gb }}G (no-op if already larger)
+  ansible.builtin.command: "qm resize {{ cloudinit_template.template_id }} scsi0 {{ cloudinit_template.disk_size_gb }}G"
+  register: resize_disk
+  changed_when: resize_disk.rc == 0 and ('resize' in resize_disk.stdout or resize_disk.stdout == '')
+  failed_when: resize_disk.rc not in [0]
+  tags: [resize]
+
+- name: Ensure cloud-init drive on ide2
+  ansible.builtin.command: "qm set {{ cloudinit_template.template_id }} --ide2 {{ cloudinit_template.storage }}:cloudinit"
+  register: set_ci
+  changed_when: set_ci.rc == 0 and ('update VM' in set_ci.stdout or set_ci.stdout == '')
+  tags: [update]
+
+- name: Final config touch-ups
+  ansible.builtin.command: >
+    qm set {{ cloudinit_template.template_id }}
+    --onboot 0
+    --cpu host,flags=+aes
+  register: set_misc
+  changed_when: set_misc.rc == 0 and ('update VM' in set_misc.stdout or set_misc.stdout == '')
+  tags: [update]
+
+- name: Detect if already a template
+  ansible.builtin.shell: "qm config {{ cloudinit_template.template_id }} | awk -F': ' '/^template:/{print $2}'"
+  register: templ_flag
+  changed_when: false
+  tags: [finalize]
+
+- name: Convert to template
+  ansible.builtin.command: "qm template {{ cloudinit_template.template_id }}"
+  when: templ_flag.stdout | default('0') | trim != '1'
+  register: make_tmpl
+  changed_when: make_tmpl.rc == 0
+  tags: [finalize]
+
+- name: Summary
+  ansible.builtin.debug:
+    msg:
+      - "Template {{ cloudinit_template.template_id }} ({{ cloudinit_template.template_name }}) ready"
+      - "Storage={{ cloudinit_template.storage }}, Bridge={{ cloudinit_template.bridge }}"
+      - "Disk={{ cloudinit_template.disk_size_gb }}G, OVMF+EFI (pre-enrolled keys), virtio-scsi-single, agent"
+  tags: [always]

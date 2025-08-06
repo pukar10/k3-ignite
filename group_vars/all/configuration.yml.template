@@ -55,9 +55,9 @@ proxmox:
 # ==== VM Network defaults used for cloud-init IP config ====
 network:
   cidr: 24
-  gateway_ip: 192.168.1.1
-  nameservers: [192.168.1.1, 1.1.1.1]
-  ntp_ip: 192.168.1.1
+  gateway: 192.168.1.1
+  nameserver: [192.168.1.1, 1.1.1.1]
+  ntp_server: 192.168.1.1
   domain: lab
 
 # ===== Defaults for VMs (can be overridden per group or per VM) =====
