@@ -1,3 +1,4 @@
+# Downloads image to /var/lib/vz/template/iso/noble-server-cloudimg-amd64.img
 ---
 - name: Derive image file path when not provided
   ansible.builtin.set_fact:
@@ -13,13 +14,17 @@
     mode: "0755"
   tags: [download]
 
+- name: Check if cloud image already exists (remote)
+  ansible.builtin.stat:
+    path: "{{ _ci_img_file }}"
+  register: img_stat
+
 - name: Download Ubuntu cloud image if missing
   ansible.builtin.get_url:
     url: "{{ cloudinit_template.img_url }}"
     dest: "{{ _ci_img_file }}"
     mode: "0644"
-  args:
-    creates: "{{ _ci_img_file }}"
+  when: not img_stat.stat.exists
   tags: [download]
 
 - name: Show image path

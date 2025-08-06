@@ -1,114 +1,121 @@
 ---
-# Build/update the cloud-init template (OVMF/EFI + cloudinit drive)
-- name: Derive image file path when not provided
+# cloudinit-create_template
+
+# --------- Defaults (override via inventory/group_vars as needed) ----------
+- name: Defaults
+  ansible.builtin.set_fact:
+    _vm_id:            "{{ vm_id            | default(9000) }}"
+    _vm_name:          "{{ vm_name          | default('ubuntu-2404-cloudinit') }}"
+    _storage:          "{{ storage          | default('local-lvm') }}"
+    _ci_storage:       "{{ ci_storage       | default(storage | default('local-lvm')) }}"
+    _bridge:           "{{ bridge           | default('vmbr0') }}"
+    _root_size_gb:     "{{ root_size_gb     | default(20) }}"
+    _net_queues:       "{{ net_queues       | default(4) }}"
+    _template_onboot:  "{{ template_onboot  | default(0) }}"
+
+# --------- Resolve image path from previous role's vars ---------------------
+- name: Derive image file path
   ansible.builtin.set_fact:
     _ci_img_file: >-
-      {{ (cloudinit_template.img_file | length > 0)
+      {{ (cloudinit_template.img_file | default('') | length > 0)
          | ternary(cloudinit_template.img_file,
                    cloudinit_template.img_dir ~ '/' ~ (cloudinit_template.img_url | basename)) }}
 
-- name: Check if VMID exists
-  ansible.builtin.command: "qm status 9000"
+# --------- Create / base hardware -----------------------------------------
+- name: Check if VM exists
+  ansible.builtin.command: "qm status {{ _vm_id }}"
   register: vm_status
   changed_when: false
   failed_when: vm_status.rc not in [0,2]
   ignore_errors: true
-  tags: [create,update]
 
-- name: Create VM shell if missing
+- name: Create minimal VM shell (once)
   ansible.builtin.command: >
-    qm create 9000
-    --name ubuntu-2404-cloudinit
-    --memory 1024
-    --sockets 1
-    --cores 1
-    --machine q35
-    --bios ovmf
-    --net0 virtio,bridge=vmbr0,firewall=0
+    qm create {{ _vm_id }}
+    --name {{ _vm_name }}
+    --memory 1024 --sockets 1 --cores 1
+    --machine q35 --bios ovmf --ostype l26
+    --net0 virtio,bridge={{ _bridge }},firewall=0
     --scsihw virtio-scsi-single
     --agent enabled=1
     --vga none
-    --ostype l26
   when: vm_status.rc != 0
-  register: qm_create
-  changed_when: qm_create.rc == 0
-  tags: [create]
 
 - name: Ensure EFI disk with pre-enrolled keys
-  ansible.builtin.command: >
-    qm set 9000
-    --efidisk0 local-lvm:1,pre-enrolled-keys=1
-  register: set_efi
-  changed_when: set_efi.rc == 0 and ('update VM' in set_efi.stdout or set_efi.stdout == '')
-  tags: [update]
+  ansible.builtin.command: "qm set {{ _vm_id }} --efidisk0 {{ _storage }}:1,pre-enrolled-keys=1"
 
+# --------- Import/attach cloud image, cloud-init drive ---------------------
 - name: Read current config
-  ansible.builtin.command: "qm config 9000"
+  ansible.builtin.command: "qm config {{ _vm_id }}"
   register: qm_cfg
   changed_when: false
-  tags: [update]
 
-- name: Import cloud image as disk (once)
+- name: Import cloud image (once)
   ansible.builtin.command: >
-    qm importdisk 9000 {{ _ci_img_file }} local-lvm -format qcow2
+    qm importdisk {{ _vm_id }} {{ _ci_img_file }} {{ _storage }} -format qcow2
   when: "'scsi0:' not in qm_cfg.stdout"
-  register: importdisk
-  changed_when: importdisk.rc == 0
-  tags: [import]
 
-- name: Attach imported disk as scsi0
+- name: Attach imported disk as scsi0 (once)
   ansible.builtin.command: >
-    qm set 9000 --scsi0 local-lvm:vm-9000-disk-0
+    qm set {{ _vm_id }} --scsi0 {{ _storage }}:vm-{{ _vm_id }}-disk-0
   when: "'scsi0:' not in qm_cfg.stdout"
-  register: attach_scsi0
-  changed_when: attach_scsi0.rc == 0
-  tags: [import]
 
-- name: Set boot to scsi0
-  ansible.builtin.command: "qm set 9000 --boot order=scsi0"
-  register: set_boot
-  changed_when: set_boot.rc == 0 and ('update VM' in set_boot.stdout or set_boot.stdout == '')
-  tags: [update]
+- name: Ensure cloud-init drive on ide2 (once)
+  ansible.builtin.command: "qm set {{ _vm_id }} --ide2 {{ _ci_storage }}:cloudinit"
+  when: "'ide2:' not in qm_cfg.stdout"
 
-- name: Resize root disk to 20G (no-op if already larger)
-  ansible.builtin.command: "qm resize 9000 scsi0 20G"
-  register: resize_disk
-  changed_when: resize_disk.rc == 0 and ('resize' in resize_disk.stdout or resize_disk.stdout == '')
-  failed_when: resize_disk.rc not in [0]
-  tags: [resize]
+# --------- One-pass parse for scsi0 volid and net0 -------------------------
+- name: Extract scsi0 volid and net0 line
+  ansible.builtin.set_fact:
+    scsi0_volid: "{{ (qm_cfg.stdout | regex_findall('^scsi0:\\s*(\\S+)', multiline=True) | first) | default('') }}"
+    net0_cur:    "{{ (qm_cfg.stdout | regex_findall('^net0:\\s*(.+)$', multiline=True) | first) | default('') }}"
 
-- name: Ensure cloud-init drive on ide2
-  ansible.builtin.command: "qm set 9000 --ide2 local-lvm:cloudinit"
-  register: set_ci
-  changed_when: set_ci.rc == 0 and ('update VM' in set_ci.stdout or set_ci.stdout == '')
-  tags: [update]
-
-- name: Final config touch-ups
+# --------- Core tuning ---------------------------------
+- name: Base tuning (boot order, CPU host+AES, RNG, balloon off, hotplug, serial, onboot, watchdog, protection)
   ansible.builtin.command: >
-    qm set 9000
-    --onboot 0
+    qm set {{ _vm_id }}
+    --boot order=scsi0
     --cpu host,flags=+aes
-  register: set_misc
-  changed_when: set_misc.rc == 0 and ('update VM' in set_misc.stdout or set_misc.stdout == '')
-  tags: [update]
+    --rng0 /dev/urandom
+    --balloon 0
+    --hotplug disk,network,usb,memory,cpu
+    --serial0 socket --vga serial0
+    --onboot {{ _template_onboot }}
+    --watchdog model=i6300esb,action=reset
+    --protection 1
 
-- name: Detect if already a template
-  ansible.builtin.shell: "qm config 9000 | awk -F': ' '/^template:/{print $2}'"
+- name: Tune scsi0 flags (cache=none,iothread=1,discard=on,ssd=1) if not present
+  ansible.builtin.command: >
+    qm set {{ _vm_id }} --scsi0 {{ scsi0_volid }},cache=none,iothread=1,discard=on,ssd=1
+  when: scsi0_volid | length > 0 and
+        ('cache=none' not in qm_cfg.stdout or
+         'iothread=1' not in qm_cfg.stdout or
+         'discard=on' not in qm_cfg.stdout or
+         'ssd=1' not in qm_cfg.stdout)
+
+- name: Resize root disk (no-op if already larger)
+  ansible.builtin.command: "qm resize {{ _vm_id }} scsi0 {{ _root_size_gb }}G"
+
+- name: Add virtio-net multiqueue if missing
+  ansible.builtin.command: >
+    qm set {{ _vm_id }} --net0 {{ net0_cur }},queues={{ _net_queues }}
+  when: net0_cur | length > 0 and 'queues=' not in net0_cur
+
+# --------- Finalize as template -------------------------------------------
+- name: Convert to template if not yet
+  ansible.builtin.shell: "qm config {{ _vm_id }} | awk -F': ' '/^template:/{print $2}'"
   register: templ_flag
   changed_when: false
-  tags: [finalize]
 
-- name: Convert to template
-  ansible.builtin.command: "qm template 9000"
+- name: Mark as template
+  ansible.builtin.command: "qm template {{ _vm_id }}"
   when: templ_flag.stdout | default('0') | trim != '1'
-  register: make_tmpl
-  changed_when: make_tmpl.rc == 0
-  tags: [finalize]
 
+# --------- Summary ---------------------------------------------------------
 - name: Summary
   ansible.builtin.debug:
     msg:
-      - "Template 9000 (ubuntu-2404-cloudinit) ready"
-      - "Storage=local-lvm, Bridge=vmbr0"
-      - "Disk=20G, OVMF+EFI (pre-enrolled keys), virtio-scsi-single, agent"
-  tags: [always]
+      - "Template {{ _vm_id }} ({{ _vm_name }}) ready"
+      - "Storage={{ _storage }}, CI storage={{ _ci_storage }}, Bridge={{ _bridge }}"
+      - "Root={{ _root_size_gb }}G, EFI+OVMF, virtio-scsi-single, agent"
+      - "CPU=host(+AES), balloon=0, RNG, hotplug, serial console, queues={{ _net_queues }}, onboot={{ _template_onboot }}, watchdog, protection=1"
