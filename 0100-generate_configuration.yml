@@ -1,4 +1,0 @@
-# Generate inventory file using the configuration.yml against the inventory.j2 template
-- hosts: local
-  roles:
-    - base-generate_proxmox_configuration

@@ -5,5 +5,5 @@
   become: true
 
   roles:
-    - role: pve_cloud_image     # downloads/ensures the cloud image
-    - role: pve_ci_template     # builds/updates the cloud-init template
+    - role: cloudinit-get_cloud_image     # downloads/ensures the cloud image
+    - role: cloudinit-create_template     # builds/updates the cloud-init template
