@@ -1,8 +1,15 @@
 ---
+- name: Check sshpass
+  hosts: local
+  gather_facts: true
+  become: true
+  roles:
+    - base-check-sshpass
+
 - name: Build Ubuntu cloud-init template on Proxmox
   hosts: primary_host
   gather_facts: false
   become: true
   roles:
-    - role: cloudinit-get_cloud_image     # downloads/ensures the cloud image
-    - role: cloudinit-create_template     # builds/updates the cloud-init template
+    - cloudinit-get_cloud_image     # downloads/ensures the cloud image
+    - cloudinit-create_template     # builds/updates the cloud-init template

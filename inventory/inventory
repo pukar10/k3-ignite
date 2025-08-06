@@ -3,14 +3,13 @@
 localhost ansible_connection=local ansible_python_interpreter=auto_silent
 
 [primary_host]
-192.168.1.30 hostname=proxmox1
+192.168.1.30 ansible_user=root  hostname=proxmox1
 
 [k3_nodes]
-192.168.1.40 hostname=k3-node-1
-192.168.1.41 hostname=k3s-node-2
-192.168.1.42 hostname=k3s-node-3
+192.168.1.40 ansible_user=psubedi hostname=k3-node-1
+192.168.1.41 ansible_user=psubedi hostname=k3s-node-2
+192.168.1.42 ansible_user=psubedi hostname=k3s-node-3
 
 [all:vars]
-ansible_user=admin
 gateway_ip=192.168.1.1
 ntp_ip=192.168.1.1

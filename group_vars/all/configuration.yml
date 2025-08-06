@@ -32,6 +32,8 @@ proxmox:
   api_token_id: "ansible@pve!ansible"
   api_token_secret: "59ede7aa-3fff-45cb-9c6c-2f86471e9d93"
   validate_certs: false
+  # ssh user for proxmox
+  ssh_user: root
   # Hosts in the proxmox cluster
   nodes:
     - { name: "proxmox1" }
@@ -97,11 +99,14 @@ k3_nodes:
   - name: k3-node-1
     hostname: k3-node-1
     ip: 192.168.1.40
+    ssh_user: psubedi
 
   - name: k3-node-2
     hostname: k3s-node-2
     ip: 192.168.1.41
+    ssh_user: psubedi
 
   - name: k3-node-3
     hostname: k3s-node-3
     ip: 192.168.1.42
+    ssh_user: psubedi
