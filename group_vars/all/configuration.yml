@@ -1,39 +1,28 @@
 # == Current specifications == 
   # current image: ubuntu-24.04.2-live-server-amd64.iso
 
-  # proxmox1.storage: 230G (SSD)
+  # proxmox1.storage: 200G (SSD)
   # proxmox1.sockets: 1
   # proxmox1.cores: 8
   # proxmox1.mem: 15 GiB
 
-  # proxmox2.storage: 745G (SSD)
+  # proxmox2.storage: 725G (SSD)
   # proxmox2.sockets: 1
   # proxmox2.cores: 8
   # proxmox2.mem: 15 GiB
 
-  # proxmox3.storage: 9000G (HDD)
+  # proxmox3.storage: 8980G (HDD)
   # proxmox3.sockets: 1
   # proxmox3.cores: 8
   # proxmox3.mem: 15 GiB
 
 # ==== Cloudinit ====
 cloudinit_template:
-  template_id: 9000
-  template_name: "ubuntu-2404-cloudinit"
-  # Storage and network on Proxmox
-  storage: "local-lvm"
-  bridge: "vmbr0"
-  # Template VM shell resources (just for the template itself)
-  ci_memory_mb: 1024
-  ci_sockets: 1
-  ci_cores: 1
   # Cloud image (Ubuntu 24.04 LTS)
   img_url: "https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img"
   img_dir: "/var/lib/vz/template/iso"
   # Optional: override. If omitted, derived from img_url basename under img_dir
   img_file: ""
-  # Root disk size for the template (clones can grow later)
-  disk_size_gb: 20
 
 
 # ==== Use the proxmox_create_token script to generate the api_token_id and api_token_secret ====
