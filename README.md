@@ -21,13 +21,17 @@ Directory that contains files with information about hosts and what groups they 
 
 ## Deployment
 
-### Prerequisites
+### Dependencies
+
 1. Running instance of Proxmox
 2. ansible>=2.17
-3. community.proxmox
-4. sshpass
-5. community.general >= 6.5.0
-6. python library proxmoxer
+3. community.general >= 6.5.0
+4. community.proxmox
+5. ansible.posix
+6. proxmoxer
+7. requests
+8. paramiko
+9. sshpass
 
 ### Procedure
 1. Create a copy of configuration.yml.template and fill it out.
