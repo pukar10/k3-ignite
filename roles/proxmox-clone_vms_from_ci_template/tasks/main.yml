@@ -1,0 +1,6 @@
+- name: Clone each VM from ci template
+  include_tasks: clone_vm.yml
+  loop: "{{ vms }}"
+  loop_control:
+    loop_var: item
+    label: "{{ item.hostname }} ({{ item.ip }}) on {{ item.node }}"

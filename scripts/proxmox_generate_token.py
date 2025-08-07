@@ -26,6 +26,19 @@ def prompt_bool(q, default=True):
         print("Please answer y or n.")
 
 
+def prompt_password_twice(label="Password for ansible@pve"):
+    while True:
+        p1 = getpass(f"{label}: ")
+        if len(p1) < 8:
+            print("Password must be at least 8 characters.")
+            continue
+        p2 = getpass("Confirm password: ")
+        if p1 != p2:
+            print("Passwords do not match. Try again.")
+            continue
+        return p1
+
+
 def run_local(cmd):
     res = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
     return res.returncode, res.stdout
@@ -43,7 +56,6 @@ def prefer_json(cmd_base, runner):
     Try pveum with JSON flags, fall back to plain output.
     Returns (rc, stdout, used_json)
     """
-    # Newer tools: --output-format json ; some older accept --format json
     for flag in ("--output-format json", "--format json"):
         rc, out = runner(f"{cmd_base} {flag}")
         if rc == 0:
@@ -51,24 +63,24 @@ def prefer_json(cmd_base, runner):
                 json.loads(out)
                 return rc, out, True
             except Exception:
-                # was successful but not json; keep as plain
                 return rc, out, False
-    # Fall back to plain
     rc, out = runner(cmd_base)
     return rc, out, False
 
 
-def ensure_user(user_principal, comment, runner):
-    # Check if user exists
-    # Try JSON first
+def ensure_user(user_principal, comment, runner, password=None):
+    """
+    Ensure user exists. If creating, optionally set password at creation time.
+    Returns (created: bool, msg: str)
+    """
     rc, out, used_json = prefer_json("pveum user list", runner)
     if rc != 0:
         raise RuntimeError(f"Failed to list users:\n{out}")
+
     exists = False
     if used_json:
         try:
             items = json.loads(out)
-            # pveum user list JSON may be array of dicts with 'userid'
             for it in items:
                 if it.get("userid") == user_principal:
                     exists = True
@@ -76,25 +88,42 @@ def ensure_user(user_principal, comment, runner):
         except Exception:
             pass
     if not exists and not used_json:
-        # Grep fallback
         exists = user_principal in out
 
     if exists:
         return False, "exists"
-    # Create user
+
+    # Create user (with password if provided)
     cmd = f"pveum user add {shlex.quote(user_principal)} --comment {shlex.quote(comment)}"
+    if password:
+        cmd += f" --password {shlex.quote(password)}"
     rc, out = runner(cmd)
     if rc != 0 and "already exists" not in out.lower():
         raise RuntimeError(f"Failed to create user:\n{out}")
     return True, out
 
 
+def set_user_password(user_principal, password, runner):
+    """
+    Try multiple CLI variants to set/reset password for an existing user.
+    """
+    attempts = [
+        f"pveum user modify {shlex.quote(user_principal)} --password {shlex.quote(password)}",
+        f"pveum passwd {shlex.quote(user_principal)} --password {shlex.quote(password)}",
+    ]
+    last_out = ""
+    for cmd in attempts:
+        rc, out = runner(cmd)
+        if rc == 0:
+            return
+        last_out = out
+    raise RuntimeError(f"Failed to set password for {user_principal}.\nLast output:\n{last_out}")
+
+
 def create_token(user_principal, token_name, privsep, runner):
-    # Try to create token and parse secret from JSON
     base = f"pveum user token add {shlex.quote(user_principal)} {shlex.quote(token_name)} --privsep {1 if privsep else 0}"
     rc, out, used_json = prefer_json(base, runner)
     if rc != 0:
-        # If token exists, we need to detect it (but secret won't be retrievable)
         if "already exists" in out.lower():
             raise RuntimeError(
                 "Token already exists and Proxmox will not re-show the secret.\n"
@@ -107,29 +136,23 @@ def create_token(user_principal, token_name, privsep, runner):
     if used_json:
         try:
             data = json.loads(out)
-            # Proxmox prints a single dict with fields like 'full-tokenid' and 'value' (secret)
             if isinstance(data, dict):
                 secret = data.get("value") or data.get("secret")
             elif isinstance(data, list) and data:
-                # some versions return a list with one item
                 secret = data[0].get("value") or data[0].get("secret")
         except Exception:
             pass
     if secret is None:
-        # Fallback regex search
-        # look for 'value: <secret>' or 'Token value: <secret>'
         m = re.search(r"(?:value|Token value)\s*:\s*([A-Za-z0-9\.\-_]+)", out)
         if m:
             secret = m.group(1)
 
     if not secret:
-        # Last resort: print output so user can see it and copy/paste manually
         raise RuntimeError(
             "Token created but could not detect the secret automatically.\n"
             f"Raw output was:\n{out}\n"
             "Please capture the secret now; Proxmox shows it only once."
         )
-
     return tokenid, secret
 
 
@@ -145,7 +168,6 @@ def assign_acl(path, principal, role, runner, is_token=False):
 
 def main():
     print("=== Proxmox API Token Bootstrap ===")
-    #use_ssh = prompt_bool("Connect over SSH to a Proxmox node?", True)
     use_ssh = True
 
     runner = None
@@ -157,10 +179,7 @@ def main():
             print("paramiko is required for SSH. Install with: pip install paramiko", file=sys.stderr)
             sys.exit(1)
         host = input("Proxmox host (FQDN/IP): ").strip()
-        #port_in = input("SSH port [22]: ").strip()
-        #port = int(port_in) if port_in else 22
         port = 22
-        #user = input("SSH user [root]: ").strip() or "root"
         user = "root"
 
         auth_method_key = prompt_bool("Use SSH key authentication?", True)
@@ -184,36 +203,38 @@ def main():
 
         ssh = ssh_client
         runner = lambda cmd: run_ssh(ssh, cmd)
-        api_host_for_ansible = host  # good default: same host for Ansible api_host
+        api_host_for_ansible = host
     else:
-        # local run (execute on a Proxmox node directly)
         runner = lambda cmd: run_local(cmd)
         api_host_for_ansible = input("Ansible proxmox.api_host (FQDN/IP for later) [this node's hostname/IP]: ").strip() or "pve"
 
-    # Collect Proxmox objects to create
     print("\n--- Proxmox User/Token Details ---")
-    #realm = input("Realm [pve]: ").strip() or "pve"
-    #username = input("Automation username [ansible]: ").strip() or "ansible"
-    #user_principal = f"{username}@{realm}"
     user_principal = "ansible@pve"
-
-    #token_name = input("Token name [ansible]: ").strip() or "ansible"
     token_name = "ansible"
-    #privsep = prompt_bool("Enable privilege separation for token?", True)
     privsep = True
-    #role = input("Role to grant [PVEAdmin]: ").strip() or "PVEAdmin"
     role = "PVEAdmin"
-    #acl_paths = input("ACL path(s), comma-separated [/]: ").strip() or "/"
     acl_paths = "/"
     acl_paths = [p.strip() for p in acl_paths.split(",") if p.strip()]
 
+    # NEW: prompt for a password (twice) up front
+    print("\n--- Password for ansible@pve ---")
+    chosen_password = prompt_password_twice("Create password")
+
     print("\n--- Creating/Verifying User ---")
     try:
-        created, msg = ensure_user(user_principal, "Automation user (created by script)", runner)
+        created, msg = ensure_user(
+            user_principal,
+            "Automation user (created by script)",
+            runner,
+            password=chosen_password  # pass during creation when possible
+        )
         if created:
             print(f"User created: {user_principal}")
         else:
             print(f"User exists: {user_principal}")
+            if prompt_bool("Reset the user's password to the one you just entered?", False):
+                set_user_password(user_principal, chosen_password, runner)
+                print("Password updated.")
     except Exception as e:
         print(str(e), file=sys.stderr)
         if ssh:
@@ -235,7 +256,7 @@ def main():
     print("\n--- Assigning ACL(s) ---")
     try:
         if privsep:
-            principal = full_tokenid  # token principal
+            principal = full_tokenid
             for p in acl_paths:
                 assign_acl(p, principal, role, runner, is_token=True)
         else:

@@ -3,13 +3,13 @@
 - name: Derive image file path when not provided
   ansible.builtin.set_fact:
     _ci_img_file: >-
-      {{ (cloudinit_template.img_file | length > 0)
-         | ternary(cloudinit_template.img_file,
-                   cloudinit_template.img_dir ~ '/' ~ (cloudinit_template.img_url | basename)) }}
+      {{ (cloudinit.img_file | length > 0)
+         | ternary(cloudinit.img_file,
+                   cloudinit.img_dir ~ '/' ~ (cloudinit.img_url | basename)) }}
 
 - name: Ensure image directory exists
   ansible.builtin.file:
-    path: "{{ cloudinit_template.img_dir }}"
+    path: "{{ cloudinit.img_dir }}"
     state: directory
     mode: "0755"
   tags: [download]
@@ -21,7 +21,7 @@
 
 - name: Download Ubuntu cloud image if missing
   ansible.builtin.get_url:
-    url: "{{ cloudinit_template.img_url }}"
+    url: "{{ cloudinit.img_url }}"
     dest: "{{ _ci_img_file }}"
     mode: "0644"
   when: not img_stat.stat.exists

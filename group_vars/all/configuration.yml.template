@@ -17,7 +17,7 @@
   # proxmox3.mem: 15 GiB
 
 # ==== Cloudinit ====
-cloudinit_template:
+cloudinit:
   # Cloud image (Ubuntu 24.04 LTS)
   img_url: "https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img"
   img_dir: "/var/lib/vz/template/iso"
