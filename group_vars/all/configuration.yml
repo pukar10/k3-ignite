@@ -1,7 +1,7 @@
 # ==== Proxmox API ====
 # Use the proxmox_create_token.sh script to generate the api_token_id and api_token_secret
 proxmox:
-  api_host: "192.168.1.30"
+  api_host: "proxmox1.lab"
   api_user: "ansible@pve"
   api_user_password: "Subedi10!"
   api_token_id: "ansible@pve!ansible"

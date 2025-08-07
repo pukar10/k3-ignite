@@ -30,7 +30,7 @@
 - name: Create minimal VM shell (once)
   ansible.builtin.command: >
     qm create {{ cloudinit.template_id }}
-    --name {{ _vm_name }}
+    --name {{ cloudinit.template_name }}
     --memory 1024 --sockets 1 --cores 1
     --machine q35 --bios ovmf --ostype l26
     --net0 virtio,bridge={{ _bridge }},firewall=0
@@ -113,7 +113,7 @@
 - name: Summary
   ansible.builtin.debug:
     msg:
-      - "Template {{ cloudinit.template_id }} ({{ _vm_name }}) ready"
+      - "Template {{ cloudinit.template_id }} ({{ cloudinit.template_name }}) ready"
       - "Storage={{ _storage }}, CI storage={{ _ci_storage }}, Bridge={{ _bridge }}"
       - "Root={{ _root_size_gb }}G, EFI+OVMF, virtio-scsi-single, agent"
       - "CPU=host(+AES), balloon=0, RNG, hotplug, serial console, queues={{ _net_queues }}, onboot={{ _template_onboot }}, watchdog, protection=1"
