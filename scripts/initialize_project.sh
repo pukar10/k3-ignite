@@ -20,6 +20,6 @@ pip install -r ../dependencies/python-requirements.txt
 echo "Installing Ansible collections locally..."
 export ANSIBLE_COLLECTIONS_PATHS="$(pwd)/.ansible/collections"
 mkdir -p "$ANSIBLE_COLLECTIONS_PATHS"
-ansible-galaxy collection install -r ../dependencies/ansible-requirements.yml --force
+ansible-galaxy collection install -r ../dependencies/ansible-requirements.yml
 
 echo "✅ Project initialized successfully."

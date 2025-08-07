@@ -1,9 +1,13 @@
 # k3-automation
 Declarative approach to deploying proxmox VMs, installing k3s with metallb loadbalancer, nginx instead of traefik and rook-ceph using ansible-playbooks for my homelab.
 
-## Ansible-playbooks
+## Development
 
-### Basics
+### Setup Dev Env
+
+You can run `. scripts/initialize_project.sh` to initalize the project. It does require the latest version of python. initialize_project.sh will create a python13 venv if one is not found using pyenv. It will then install all the required python libraries listed in `dependencies/python_requirements.txt` and ansible modules listed in `dependencies/ansible_modules.yml`. All ansible modules will be installed within the project.
+
+### Ansible Basics
 
 #### group_vars/all
 
