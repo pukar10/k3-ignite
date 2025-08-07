@@ -3,7 +3,7 @@ Declarative approach to deploying proxmox VMs, installing k3s with metallb loadb
 
 ## Ansible-playbooks
 
-### Getting started
+### Basics
 
 #### group_vars/all
 
@@ -20,18 +20,6 @@ Directory that contains files with information about hosts and what groups they 
 **Happy automating!**
 
 ## Deployment
-
-### Dependencies
-
-1. Running instance of Proxmox
-2. ansible>=2.17
-3. community.general >= 6.5.0
-4. community.proxmox
-5. ansible.posix
-6. proxmoxer
-7. requests
-8. paramiko
-9. sshpass
 
 ### Procedure
 1. Create a copy of configuration.yml.template and fill it out.

@@ -1,0 +1,5 @@
+collections:
+  - community.general
+  - community.proxmox
+  - ansible.posix
+  - kubernetes.core

@@ -1,0 +1,6 @@
+proxmoxer
+requests
+jmespath
+netaddr
+paramiko
+sshpass
