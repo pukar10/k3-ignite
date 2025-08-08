@@ -1,142 +1,77 @@
 #!/usr/bin/env python3
-import json
-import re
-import shlex
-import subprocess
 import sys
+import urllib3
 from getpass import getpass
+from proxmoxer import ProxmoxAPI
 
-# Optional SSH support
-try:
-    import paramiko  # pip install paramiko
-except ImportError:
-    paramiko = None
+# ===== Config (edit as needed) =====
+PROXMOX_HOST = "192.168.1.30"   # Proxmox node or VIP
+ADMIN_USER   = "root@pam"       # Must be an existing admin
+REALM        = "pve"            # "pve" for local auth, "pam" for system auth
+NEW_USER     = "ansible"        # User to create
+ROLE         = "Administrator"  # Full access role
+VERIFY_SSL   = False            # Set True if you have a valid cert
 
+# ===== Optional: quiet self-signed cert warnings =====
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-def prompt_bool(q, default=True):
-    d = "Y/n" if default else "y/N"
-    while True:
-        ans = input(f"{q} [{d}]: ").strip().lower()
-        if ans == "" and default is not None:
-            return default
-        if ans in ("y", "yes"):
-            return True
-        if ans in ("n", "no"):
-            return False
-        print("Please answer y or n.")
-
-
-def prompt_password_twice(label="Password for ansible@pve"):
+def prompt_password_twice(label: str) -> str:
     while True:
         p1 = getpass(f"{label}: ")
-        if len(p1) < 8:
-            print("Password must be at least 8 characters.")
-            continue
         p2 = getpass("Confirm password: ")
         if p1 != p2:
             print("Passwords do not match. Try again.")
             continue
         return p1
 
+def main():
+    # --- Prompt for passwords (not echoed) ---
+    admin_pass = getpass(f"Password for {ADMIN_USER}: ")
+    new_user_pass = prompt_password_twice(f"New password for {NEW_USER}@{REALM}")
 
-def run_local(cmd):
-    res = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
-    return res.returncode, res.stdout
+    # --- Connect ---
+    try:
+        proxmox = ProxmoxAPI(
+            PROXMOX_HOST,
+            user=ADMIN_USER,
+            password=admin_pass,
+            verify_ssl=VERIFY_SSL,
+        )
+    except Exception as e:
+        print(f"❌ Failed to connect to Proxmox API at {PROXMOX_HOST}: {e}")
+        sys.exit(1)
 
+    user_id = f"{NEW_USER}@{REALM}"
 
-def run_ssh(ssh, cmd):
-    stdin, stdout, stderr = ssh.exec_command(cmd)
-    out = stdout.read().decode() + stderr.read().decode()
-    rc = stdout.channel.recv_exit_status()
-    return rc, out
+    # --- Ensure user exists ---
+    try:
+        users = proxmox.access.users.get()
+        if any(u.get("userid") == user_id for u in users):
+            print(f"ℹ️ User '{user_id}' already exists. Skipping creation.")
+        else:
+            print(f"✅ Creating user '{user_id}'")
+            proxmox.access.users.post(userid=user_id, password=new_user_pass, comment="Ansible automation user")
+    except Exception as e:
+        print(f"❌ Error ensuring user exists: {e}")
+        sys.exit(1)
 
+    # --- Ensure Administrator role on '/' ---
+    try:
+        acls = proxmox.access.acl.get()
+        already_has_admin = any(
+            a.get("userid") == user_id and a.get("roleid") == ROLE and a.get("path") == "/"
+            for a in acls
+        )
+        if already_has_admin:
+            print(f"ℹ️ '{user_id}' already has '{ROLE}' on '/'.")
+        else:
+            print(f"✅ Granting '{ROLE}' to '{user_id}' on '/'")
+            proxmox.access.acl.put(path="/", users=user_id, roles=ROLE)
+    except Exception as e:
+        print(f"❌ Error assigning role: {e}")
+        sys.exit(1)
 
-def prefer_json(cmd_base, runner):
-    """
-    Try pveum with JSON flags, fall back to plain output.
-    Returns (rc, stdout, used_json)
-    """
-    for flag in ("--output-format json", "--format json"):
-        rc, out = runner(f"{cmd_base} {flag}")
-        if rc == 0:
-            try:
-                json.loads(out)
-                return rc, out, True
-            except Exception:
-                return rc, out, False
-    rc, out = runner(cmd_base)
-    return rc, out, False
+    print("🎉 Done. The Ansible user has full access.")
 
-
-def ensure_user(user_principal, comment, runner, password=None):
-    """
-    Ensure user exists. If creating, optionally set password at creation time.
-    Returns (created: bool, msg: str)
-    """
-    rc, out, used_json = prefer_json("pveum user list", runner)
-    if rc != 0:
-        raise RuntimeError(f"Failed to list users:\n{out}")
-
-    exists = False
-    if used_json:
-        try:
-            items = json.loads(out)
-            for it in items:
-                if it.get("userid") == user_principal:
-                    exists = True
-                    break
-        except Exception:
-            pass
-    if not exists and not used_json:
-        exists = user_principal in out
-
-    if exists:
-        return False, "exists"
-
-    # Create user (with password if provided)
-    cmd = f"pveum user add {shlex.quote(user_principal)} --comment {shlex.quote(comment)}"
-    if password:
-        cmd += f" --password {shlex.quote(password)}"
-    rc, out = runner(cmd)
-    if rc != 0 and "already exists" not in out.lower():
-        raise RuntimeError(f"Failed to create user:\n{out}")
-    return True, out
-
-
-def set_user_password(user_principal, password, runner):
-    """
-    Try multiple CLI variants to set/reset password for an existing user.
-    """
-    attempts = [
-        f"pveum user modify {shlex.quote(user_principal)} --password {shlex.quote(password)}",
-        f"pveum passwd {shlex.quote(user_principal)} --password {shlex.quote(password)}",
-    ]
-    last_out = ""
-    for cmd in attempts:
-        rc, out = runner(cmd)
-        if rc == 0:
-            return
-        last_out = out
-    raise RuntimeError(f"Failed to set password for {user_principal}.\nLast output:\n{last_out}")
-
-
-def create_token(user_principal, token_name, privsep, runner):
-    base = f"pveum user token add {shlex.quote(user_principal)} {shlex.quote(token_name)} --privsep {1 if privsep else 0}"
-    rc, out, used_json = prefer_json(base, runner)
-    if rc != 0:
-        if "already exists" in out.lower():
-            raise RuntimeError(
-                "Token already exists and Proxmox will not re-show the secret.\n"
-                "Delete it (pveum user token delete ...) or choose a new token name."
-            )
-        raise RuntimeError(f"Failed to create token:\n{out}")
-
-    tokenid = f"{user_principal}!{token_name}"
-    secret = None
-    if used_json:
-        try:
-            data = json.loads(out)
-            if isinstance(data, dict):
-                secret = data.get("value") or data.get("secret")
-            elif isinstance(data, list) and data:
-                secr
+if __name__ == "__main__":
+    main()
