@@ -10,6 +10,6 @@
       delegate_to: "{{ primary_host }}"
       block:
         - import_role:
-          name: cloudinit-download_cloud_image
+            name: cloudinit-download_cloud_image
         - import_role:
-          name: cloudinit-create_template
+            name: cloudinit-create_template
