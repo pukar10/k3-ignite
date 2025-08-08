@@ -1,18 +1,15 @@
 # Generated inventory
 [local]
-localhost ansible_connection=local ansible_python_interpreter=auto_silent
-
-{# [primary_host]
-{{ proxmox.api_host }} ansible_user={{ proxmox.ssh_user  }}  hostname={{ proxmox.nodes[0].name }} #}
+localhost ansible_connection=local ansible_python_interpreter="{{ ansible_playbook_python }}"
 
 [proxmox_hosts]
 {% for host in proxmox_hosts %}
-{{ host.ip }} hostname={{ host.hostname }}
+{{ host.ip }} ansible_user={{ proxmox_hosts_ssh_user }} hostname={{ host.hostname }}
 {% endfor %}
 
 [k3_nodes]
-{% for node in k3_nodes %}
-{{ node.ip }} ansible_user={{ node.ssh_user }} hostname={{ node.hostname | default(node.name) }}
+{% for vm in vms %}
+{{ vm.ip }} ansible_user={{ vms_ssh_user }} hostname={{ vm.hostname }}
 {% endfor %}
 
 [all:vars]

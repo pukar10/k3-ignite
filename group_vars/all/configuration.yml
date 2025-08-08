@@ -8,10 +8,10 @@ proxmox:
   api_token_secret: "9f290045-6c00-4912-ae1d-cc9184c57c6b"
   validate_certs: false
 
+proxmox_hosts_ssh_user: root
 proxmox_hosts:
   - hostname: proxmox1
     ip: 192.168.1.30
-    ssh_user: root
   - hostname: proxmox2
     ip: 192.168.1.31
   - hostname: proxmox3
@@ -56,6 +56,7 @@ network:
   # proxmox3.mem: 15 GiB
 
 # ===== VMs =====
+vms_ssh_user: psubedi
 vms:
   - hostname: "k3-node-1"
     ip: 192.168.1.40

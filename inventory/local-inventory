@@ -1,2 +1,2 @@
 [local]
-local ansible_connection=local ansible_python_interpreter=.venv/bin/python
+local ansible_connection=local

@@ -1,19 +1,16 @@
 # Generated inventory
 [local]
-localhost ansible_connection=local ansible_python_interpreter=.venv/bin/python
-
-[primary_host]
-192.168.1.30 ansible_user=root  hostname=proxmox1
+localhost ansible_connection=local ansible_python_interpreter="/home/psubedi/.pyenv/versions/3.13.0/bin/python3.13"
 
 [proxmox_hosts]
-192.168.1.30
-192.168.1.31
-192.168.1.32
+192.168.1.30 ansible_user=root hostname=proxmox1
+192.168.1.31 ansible_user=root hostname=proxmox2
+192.168.1.32 ansible_user=root hostname=proxmox3
 
 [k3_nodes]
 192.168.1.40 ansible_user=psubedi hostname=k3-node-1
-192.168.1.41 ansible_user=psubedi hostname=k3s-node-2
-192.168.1.42 ansible_user=psubedi hostname=k3s-node-3
+192.168.1.41 ansible_user=psubedi hostname=k3-node-2
+192.168.1.42 ansible_user=psubedi hostname=k3-node-3
 
 [all:vars]
 gateway_ip=192.168.1.1
