@@ -5,7 +5,7 @@ proxmox:
   api_user: "ansible@pve"
   api_user_password: "Subedi10!"
   api_token_id: "ansible@pve!ansible"
-  api_token_secret: "59ede7aa-3fff-45cb-9c6c-2f86471e9d93"
+  api_token_secret: "9f290045-6c00-4912-ae1d-cc9184c57c6b"
   validate_certs: false
   ssh_user: root
 
@@ -14,15 +14,10 @@ proxmox:
 # Cloud image: Ubuntu 24.04 LTS
 # if img_file blank, derive from img_url basename under img_dir
 cloudinit:
-  img_url: "https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img"
-  img_dir: "/var/lib/vz/template/iso"
-  img_file: ""
-  template_name: "ubuntu-2404-cloudinit"
-  template_id: 9000
-  node: "proxmox1"
-  storage: "local-lvm"
+  img_url: "https://cloud-images.ubuntu.com/minimal/releases/noble/release/ubuntu-24.04-minimal-cloudimg-amd64.img"
+  img_name: ubuntu-24.04-minimal-cloudimg.img
+  template_name: ubuntu-24.04-minimal-cloud.img
   ciuser: psubedi
-  inject_ssh_key: true
 
 
 # ==== Network ====

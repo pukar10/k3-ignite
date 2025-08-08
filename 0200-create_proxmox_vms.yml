@@ -1,7 +1,7 @@
 ---
-- name: Create proxmox VMs
-  hosts: localhost
+- name: Clone one VM per Proxmox node from template (clone happens on first host)
+  hosts: proxmox_hosts
+  become: true
   gather_facts: false
-  serial: 1
   roles:
-    - proxmox-clone_vms_from_ci_template
+    - proxmox-clone_vms

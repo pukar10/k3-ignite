@@ -1,119 +1,81 @@
 ---
-# cloudinit-create_template
+# Steps to create template
+# 1. Download image
+# 2. Create empty VM
+# 3. Import Cloud image as Boot Disk
+# 4. Attach main disk (scsi0)
+# 5. Configure cloud-init settings
+# 6. Convert VM to template
 
-# --------- Defaults (override via inventory/group_vars as needed) ----------
-- name: Defaults
-  ansible.builtin.set_fact:
-    _storage:          "{{ storage          | default('local-lvm') }}"
-    _ci_storage:       "{{ ci_storage       | default(storage | default('local-lvm')) }}"
-    _bridge:           "{{ bridge           | default('vmbr0') }}"
-    _root_size_gb:     "{{ root_size_gb     | default(20) }}"
-    _net_queues:       "{{ net_queues       | default(4) }}"
-    _template_onboot:  "{{ template_onboot  | default(0) }}"
+- name: Ensure source image exists
+  ansible.builtin.stat:
+    path: "/var/lib/vz/template/images/{{ cloudinit.img_name }}"
+  register: img
 
-# --------- Resolve image path from previous role's vars ---------------------
-- name: Derive image file path
-  ansible.builtin.set_fact:
-    _ci_img_file: >-
-      {{ (cloudinit.img_file | default('') | length > 0)
-         | ternary(cloudinit.img_file,
-                   cloudinit.img_dir ~ '/' ~ (cloudinit.img_url | basename)) }}
+- name: Fail if image is missing
+  ansible.builtin.fail:
+    msg: "Missing {{ image_dir }}/{{ image_filename }}. Run the download playbook first."
+  when: not img.stat.exists
 
-# --------- Create / base hardware -----------------------------------------
-- name: Check if VM exists
-  ansible.builtin.command: "qm status {{ cloudinit.template_id }}"
+- name: Check if VMID 9000 already exists
+  ansible.builtin.command: "qm status 9000"
   register: vm_status
+  failed_when: false
   changed_when: false
-  failed_when: vm_status.rc not in [0,2]
-  ignore_errors: true
 
-- name: Create minimal VM shell (once)
+- name: Create empty VM shell
   ansible.builtin.command: >
-    qm create {{ cloudinit.template_id }}
+    qm create 9000
     --name {{ cloudinit.template_name }}
     --memory 1024 --sockets 1 --cores 1
     --machine q35 --bios ovmf --ostype l26
-    --net0 virtio,bridge={{ _bridge }},firewall=0
-    --scsihw virtio-scsi-single
-    --agent enabled=1
+    --net0 virtio,bridge=vmbr0,firewall=0
+    --cpu host
+    --scsihw virtio-scsi-pci
+    --serial0 socket
+    --boot c --bootdisk scsi0
+    --agent enabled=1,fstrim_cloned_disks=1
     --vga none
   when: vm_status.rc != 0
 
-- name: Ensure EFI disk with pre-enrolled keys
-  ansible.builtin.command: "qm set {{ cloudinit.template_id }} --efidisk0 {{ _storage }}:1,pre-enrolled-keys=1"
-
-# --------- Import/attach cloud image, cloud-init drive ---------------------
-- name: Read current config
-  ansible.builtin.command: "qm config {{ cloudinit.template_id }}"
-  register: qm_cfg
-  changed_when: false
-
-- name: Import cloud image (once)
+# takes a raw or QCOW2 cloud image file and imports it into the local-lvm for VM 9000
+- name: Import the cloud image disk to local-lvm
   ansible.builtin.command: >
-    qm importdisk {{ cloudinit.template_id }} {{ _ci_img_file }} {{ _storage }} -format qcow2
-  when: "'scsi0:' not in qm_cfg.stdout"
+    qm importdisk 9000
+    /var/lib/vz/template/images/{{ cloudinit.img_name }}
+    local-lvm
+  register: importdisk
+  when: vm_status.rc != 0
 
-- name: Attach imported disk as scsi0 (once)
-  ansible.builtin.command: >
-    qm set {{ cloudinit.template_id }} --scsi0 {{ _storage }}:vm-{{ cloudinit.template_id }}-disk-0
-  when: "'scsi0:' not in qm_cfg.stdout"
-
-- name: Ensure cloud-init drive on ide2 (once)
-  ansible.builtin.command: "qm set {{ cloudinit.template_id }} --ide2 {{ _ci_storage }}:cloudinit"
-  when: "'ide2:' not in qm_cfg.stdout"
-
-# --------- One-pass parse for scsi0 volid and net0 -------------------------
-- name: Extract scsi0 volid and net0 line
+# After qm importdisk proxmox outputs a "volid" for the imported disk. This task will parse it out and save to imported_volid.
+- name: Extract imported disk volid (fallback to standard name)
   ansible.builtin.set_fact:
-    scsi0_volid: "{{ (qm_cfg.stdout | regex_findall('^scsi0:\\s*(\\S+)', multiline=True) | first) | default('') }}"
-    net0_cur:    "{{ (qm_cfg.stdout | regex_findall('^net0:\\s*(.+)$', multiline=True) | first) | default('') }}"
+    imported_volid: "{{ (importdisk.stdout | regex_search(\"'(.*)'\", '\\1')) | default('local-lvm:vm-9000-disk-0', true) }}"
+  when: vm_status.rc != 0
 
-# --------- Core tuning ---------------------------------
-- name: Base tuning (boot order, CPU host+AES, RNG, balloon off, hotplug, serial, onboot, watchdog, protection)
-  ansible.builtin.command: >
-    qm set {{ cloudinit.template_id }}
-    --boot order=scsi0
-    --cpu host,flags=+aes
-    --rng0 /dev/urandom
-    --balloon 0
-    --hotplug disk,network,usb,memory,cpu
-    --serial0 socket --vga serial0
-    --onboot {{ _template_onboot }}
-    --watchdog model=i6300esb,action=reset
-    --protection 1
+# Attaches the imported cloud image as the VM's main boot disk (scsi0)
+- name: Attach imported disk as scsi0
+  ansible.builtin.command: "qm set 9000 --scsi0 {{ imported_volid }}"
+  when: vm_status.rc != 0
 
-- name: Tune scsi0 flags (cache=none,iothread=1,discard=on,ssd=1) if not present
-  ansible.builtin.command: >
-    qm set {{ cloudinit.template_id }} --scsi0 {{ scsi0_volid }},cache=none,iothread=1,discard=on,ssd=1
-  when: scsi0_volid | length > 0 and
-        ('cache=none' not in qm_cfg.stdout or
-         'iothread=1' not in qm_cfg.stdout or
-         'discard=on' not in qm_cfg.stdout or
-         'ssd=1' not in qm_cfg.stdout)
+# Enables cloud-init for the VM
+- name: Add cloud-init drive
+  ansible.builtin.command: "qm set 9000 --ide2 local-lvm:cloudinit"
+  when: vm_status.rc != 0
 
-- name: Resize root disk (no-op if already larger)
-  ansible.builtin.command: "qm resize {{ cloudinit.template_id }} scsi0 {{ _root_size_gb }}G"
+# Sets default cloud-init config (can replace later when cloning VM)
+- name: Set some sane cloud-init defaults (DHCP + default user)
+  ansible.builtin.command: "qm set 9000 --ciuser {{ cloudinit.ciuser }} --ipconfig0 ip=dhcp"
+  when: vm_status.rc != 0
 
-- name: Add virtio-net multiqueue if missing
-  ansible.builtin.command: >
-    qm set {{ cloudinit.template_id }} --net0 {{ net0_cur }},queues={{ _net_queues }}
-  when: net0_cur | length > 0 and 'queues=' not in net0_cur
+- name: Convert VM to a template
+  ansible.builtin.command: "qm template 9000"
+  when: vm_status.rc != 0
 
-# --------- Finalize as template -------------------------------------------
-- name: Convert to template if not yet
-  ansible.builtin.shell: "qm config {{ cloudinit.template_id }} | awk -F': ' '/^template:/{print $2}'"
-  register: templ_flag
+- name: Show resulting template config
+  ansible.builtin.command: "qm config 9000"
+  register: vm_config
   changed_when: false
 
-- name: Mark as template
-  ansible.builtin.command: "qm template {{ cloudinit.template_id }}"
-  when: templ_flag.stdout | default('0') | trim != '1'
-
-# --------- Summary ---------------------------------------------------------
-- name: Summary
-  ansible.builtin.debug:
-    msg:
-      - "Template {{ cloudinit.template_id }} ({{ cloudinit.template_name }}) ready"
-      - "Storage={{ _storage }}, CI storage={{ _ci_storage }}, Bridge={{ _bridge }}"
-      - "Root={{ _root_size_gb }}G, EFI+OVMF, virtio-scsi-single, agent"
-      - "CPU=host(+AES), balloon=0, RNG, hotplug, serial console, queues={{ _net_queues }}, onboot={{ _template_onboot }}, watchdog, protection=1"
+- ansible.builtin.debug:
+    var: vm_config.stdout

@@ -5,6 +5,11 @@ localhost ansible_connection=local ansible_python_interpreter=.venv/bin/python
 [primary_host]
 192.168.1.30 ansible_user=root  hostname=proxmox1
 
+[proxmox_hosts]
+192.168.1.30
+192.168.1.31
+192.168.1.32
+
 [k3_nodes]
 192.168.1.40 ansible_user=psubedi hostname=k3-node-1
 192.168.1.41 ansible_user=psubedi hostname=k3s-node-2

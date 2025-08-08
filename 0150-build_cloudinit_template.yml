@@ -4,5 +4,5 @@
   gather_facts: false
   become: true
   roles:
-    - cloudinit-get_cloud_image
+    - cloudinit-download_cloud_image
     - cloudinit-create_template

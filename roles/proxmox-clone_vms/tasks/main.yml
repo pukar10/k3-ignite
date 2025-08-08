@@ -1,0 +1,37 @@
+---
+- name: Get next free VMID (once per host)
+  delegate_to: proxmox1
+  changed_when: false
+  ansible.builtin.shell: pvesh get /cluster/nextid
+  register: nextid
+
+- name: Remember VMID for this host
+  ansible.builtin.set_fact:
+    free_vmid: "{{ nextid.stdout | int }}"
+
+# Clones template from promxox1 to all hosts
+# inventory_hostname: name of current host exactly as it appears in your inventory file.
+- name: Clone template to primary host
+  delegate_to: proxmox1
+  ansible.builtin.command: >
+    qm clone 9000 {{ free_vmid }}
+    --full 1
+    --name {{ inventory_hostname }}-vm
+    --target {{ inventory_hostname }}
+    --storage local-lvm
+
+# Runs on the current host, same host that is being iterated over.
+# hostvar: gives access to variables for specified host.
+# inventory_hostname: name of current host exactly as it appears in inventory file.
+- name: Configure CPU/RAM/NIC/agent + cloud-init user on target node
+  delegate_to: "{{ inventory_hostname }}"
+  ansible.builtin.command: >
+    qm set {{ free_vmid }}
+    --cores 5
+    --sockets 1 --cpu host
+    --memory {{ hostvars[inventory_hostname].memory | default(default_memory) }}
+    --net0 virtio,bridge={{ bridge }}
+    --agent enabled=1
+    --ciuser {{ ciuser }}
+
+
