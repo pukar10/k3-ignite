@@ -1,0 +1,9 @@
+# template_name: "ubuntu-2404-cloudinit"
+# bridge: "vmbr0"
+# cidr: 24
+# gw: null
+# ciuser: "ubuntu"
+# ssh_pubkey_path: "~/.ssh/id_rsa.pub"
+# vm_cores: 2
+# vm_sockets: 1
+# vm_memory_mb: 4096

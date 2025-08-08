@@ -43,7 +43,7 @@ network:
   # proxmox1.storage: 200G (SSD)
   # proxmox1.sockets: 1
   # proxmox1.cores: 8
-  # proxmox1.mem: 15 GiB
+  # proxmox1.mem: 15 GiB (8192 MiB)
 
   # proxmox2.storage: 725G (SSD)
   # proxmox2.sockets: 1
