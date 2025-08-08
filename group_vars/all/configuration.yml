@@ -7,7 +7,15 @@ proxmox:
   api_token_id: "ansible@pve!ansible"
   api_token_secret: "9f290045-6c00-4912-ae1d-cc9184c57c6b"
   validate_certs: false
-  ssh_user: root
+
+proxmox_hosts:
+  - hostname: proxmox1
+    ip: 192.168.1.30
+    ssh_user: root
+  - hostname: proxmox2
+    ip: 192.168.1.31
+  - hostname: proxmox3
+    ip: 192.168.1.32
 
 
 # ==== Cloudinit ====

@@ -1,8 +1,14 @@
 ---
 - name: Build Ubuntu cloud-init template on Proxmox
-  hosts: primary_host
+  hosts: proxmox_hosts
   gather_facts: false
   become: true
-  roles:
-    - cloudinit-download_cloud_image
-    - cloudinit-create_template
+  tasks:
+    - name: Only run roles on the first Proxmox host
+      run_once: true
+      delegate_to: "{{ groups['proxmox_hosts'][0] }}"
+      block:
+        - import_role:
+            - name: cloudinit-download_cloud_image
+        - import_role:
+            - name: cloudinit-create_template

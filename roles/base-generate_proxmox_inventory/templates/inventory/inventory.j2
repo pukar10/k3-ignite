@@ -2,15 +2,17 @@
 [local]
 localhost ansible_connection=local ansible_python_interpreter=auto_silent
 
-[primary_host]
-{{ proxmox.api_host }} ansible_user={{ proxmox.ssh_user  }}  hostname={{ proxmox.nodes[0].name }}
+{# [primary_host]
+{{ proxmox.api_host }} ansible_user={{ proxmox.ssh_user  }}  hostname={{ proxmox.nodes[0].name }} #}
 
 [proxmox_hosts]
-
+{% for host in proxmox_hosts %}
+{{ host.ip }} hostname={{ host.hostname }}
+{% endfor %}
 
 [k3_nodes]
-{% for n in k3_nodes %}
-{{ n.ip }} ansible_user={{ n.ssh_user }} hostname={{ n.hostname | default(n.name) }}
+{% for node in k3_nodes %}
+{{ node.ip }} ansible_user={{ node.ssh_user }} hostname={{ node.hostname | default(node.name) }}
 {% endfor %}
 
 [all:vars]
