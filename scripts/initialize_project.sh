@@ -38,14 +38,10 @@ fi
 
 
 # ==== Pyenv, setup venv or create ====
-if [ ! -d .venv ]; then
-  echo "Creating venv with Python 3.13.0..."
+if [[ "$(python --version 2>&1)" != Python\ 3.13.* ]]; then
   pyenv local 3.13.0
-  python -m venv .venv
+  echo "Running pyenv local 3.13.0"
 fi
-source .venv/bin/activate
-echo "Using Python: $(python --version)"
-
 
 # ==== Python Req ====
 echo "Upgrading pip..."
@@ -53,9 +49,6 @@ python -m pip install --upgrade pip
 
 echo "Installing Python dependencies..."
 python -m pip install -r "${DEP_DIR}/python_requirements.txt"
-
-echo "python: $(command -v python)"
-echo "pip:    $(command -v pip)"
 
 # ==== Ansible Req ===={
 echo "Installing Ansible collections locally..."
