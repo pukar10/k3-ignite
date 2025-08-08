@@ -5,4 +5,3 @@
   serial: 1
   roles:
     - proxmox-clone_vms_from_ci_template
-    - proxmox-vm_power_on

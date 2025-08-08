@@ -5,34 +5,35 @@ set -e
 SCRIPTS_DIR=$(realpath "$(dirname "${BASH_SOURCE[0]}")")
 DEP_DIR=$(realpath "${SCRIPTS_DIR}/../dependencies")
 
-# ==== Sshpass, install if not found ====
+# ==== sshpass: install only if missing ====
 if command -v sshpass >/dev/null 2>&1; then
   echo "sshpass already installed."
-fi
-echo "sshpass not found; installing..."
-if [[ "$OSTYPE" == "darwin"* ]]; then
-  if command -v brew >/dev/null 2>&1; then
-    # sshpass isn't in Homebrew core; this tap works.
-    brew install hudochenkov/sshpass/sshpass
+else
+  echo "Installing sshpass..."
+  if [[ "$OSTYPE" == "darwin"* ]]; then
+    if command -v brew >/dev/null 2>&1; then
+      # sshpass isn't in Homebrew core; this tap works.
+      brew list sshpass >/dev/null 2>&1 || brew install hudochenkov/sshpass/sshpass
+    else
+      echo "❌ Homebrew not found. Install brew or install sshpass manually." >&2
+      exit 1
+    fi
+  elif command -v apt-get >/dev/null 2>&1; then
+    sudo apt-get update -y && sudo apt-get install -y sshpass
+  elif command -v dnf >/dev/null 2>&1; then
+    sudo dnf -y install sshpass
+  elif command -v yum >/dev/null 2>&1; then
+    sudo yum -y install sshpass
+  elif command -v zypper >/dev/null 2>&1; then
+    sudo zypper -n install sshpass
+  elif command -v pacman >/dev/null 2>&1; then
+    sudo pacman -Sy --noconfirm sshpass
+  elif command -v apk >/dev/null 2>&1; then
+    sudo apk add --no-cache sshpass
   else
-    echo "❌ Homebrew not found. Install brew or install sshpass manually." >&2
+    echo "❌ Unsupported system. Please install sshpass manually." >&2
     exit 1
   fi
-elif command -v apt-get >/dev/null 2>&1; then
-  sudo apt-get update -y && sudo apt-get install -y sshpass
-elif command -v dnf >/dev/null 2>&1; then
-  sudo dnf install -y sshpass
-elif command -v yum >/dev/null 2>&1; then
-  sudo yum install -y sshpass
-elif command -v zypper >/dev/null 2>&1; then
-  sudo zypper -n install sshpass
-elif command -v pacman >/dev/null 2>&1; then
-  sudo pacman -Sy --noconfirm sshpass
-elif command -v apk >/dev/null 2>&1; then
-  sudo apk add --no-cache sshpass
-else
-  echo "❌ Unsupported system. Please install sshpass manually." >&2
-  exit 1
 fi
 
 
@@ -48,10 +49,13 @@ echo "Using Python: $(python --version)"
 
 # ==== Python Req ====
 echo "Upgrading pip..."
-pip install --upgrade pip
+python -m pip install --upgrade pip
 
 echo "Installing Python dependencies..."
-pip install -r "${DEP_DIR}/python_requirements.txt"
+python -m pip install -r "${DEP_DIR}/python_requirements.txt"
+
+echo "python: $(command -v python)"
+echo "pip:    $(command -v pip)"
 
 # ==== Ansible Req ===={
 echo "Installing Ansible collections locally..."

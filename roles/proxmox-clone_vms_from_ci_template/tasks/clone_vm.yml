@@ -1,71 +1,106 @@
 ---
-- name: Load SSH public key
-  ansible.builtin.slurp:
-    src: "{{ cloudinit.ssh_key_path | default('~/.ssh/id_rsa.pub') }}"
-  register: pubkey_b64
-  when:
-    - cloudinit.inject_ssh_key|bool
-    - cloudinit.ciuser is defined
+# - name: Load SSH public key
+#   ansible.builtin.slurp:
+#     src: "{{ cloudinit.ssh_key_path | default('~/.ssh/id_rsa.pub') }}"
+#   register: pubkey_b64
+#   when:
+#     - cloudinit.inject_ssh_key|bool
+#     - cloudinit.ciuser is defined
 
-- name: Decode SSH public key
-  ansible.builtin.set_fact:
-    ssh_pubkey: "{{ pubkey_b64.content | b64decode | trim }}"
-  when:
-    - cloudinit.inject_ssh_key|bool
-    - cloudinit.ciuser is defined
+# - name: Decode SSH public key
+#   ansible.builtin.set_fact:
+#     ssh_pubkey: "{{ pubkey_b64.content | b64decode | trim }}"
+#   when:
+#     - cloudinit.inject_ssh_key|bool
+#     - cloudinit.ciuser is defined
 
-- name: Get next avaliable VMID from Proxmox
+# - name: Get next avaliable VMID from Proxmox
+#   ansible.builtin.uri:
+#     url: "https://{{ proxmox.api_host }}:8006/api2/json/cluster/nextid"
+#     method: GET
+#     return_content: true
+#     validate_certs: "{{ proxmox.validate_certs }}"
+#     headers:
+#       Authorization: "PVEAPIToken={{ proxmox.api_token_id }}={{ proxmox.api_token_secret }}"
+#   register: nextid_resp
+
+# - name: Set chosen VMID
+#   ansible.builtin.set_fact:
+#     chosen_vmid: "{{ (nextid_resp.json.data) | int }}"
+
+- name: Get VM resources from Proxmox API
   ansible.builtin.uri:
-    url: "https://{{ proxmox.api_host }}:8006/api2/json/cluster/nextid"
+    url: "https://{{ proxmox.api_host }}:8006/api2/json/cluster/resources?type=vm"
     method: GET
-    return_content: true
-    validate_certs: "{{ proxmox.validate_certs }}"
     headers:
       Authorization: "PVEAPIToken={{ proxmox.api_token_id }}={{ proxmox.api_token_secret }}"
-  register: nextid_resp
+    validate_certs: "{{ proxmox.validate_certs }}"
+    return_content: true
+  register: pmx_vms
+  delegate_to: localhost
 
-- name: Set chosen VMID
-  ansible.builtin.set_fact:
-    chosen_vmid: "{{ (nextid_resp.json.data) | int }}"
+- name: debug
+  debug:
+    msg: "{{ pmx_vms }}"
 
+# --- Clone using the discovered template ---
 - name: Clone VM
-  community.general.proxmox_kvm:
+  community.proxmox.proxmox_kvm:
     api_host: "{{ proxmox.api_host }}"
     api_user: "{{ proxmox.api_user }}"
-    api_password: "{{ proxmox.api_user_password }}"
     api_token_id: "{{ proxmox.api_token_id }}"
     api_token_secret: "{{ proxmox.api_token_secret }}"
-    node: "{{ cloudinit.node }}"
-    clone: "{{ cloudinit.template_name }}"
-    name: "{{ item.hostname }}"
-    storage: "local-lvm"
+    validate_certs: "{{ proxmox.validate_certs | default(false) }}"
+
+    node: "{{ tmpl_obj['node'] }}"   # source node (where the template lives)
+    target: "{{ vm.node }}"          # destination node
+
+    vmid: "{{ tmpl_obj['vmid'] }}"   # source template ID
+    clone: "from-id"                 # value ignored with vmid; triggers clone
+
+    name: "{{ vm.hostname }}"
+    storage: "{{ cloudinit.storage | default('local-lvm') }}"
     full: true
 
-    
-    # validate_certs: "{{ proxmox.validate_certs }}"
-    # vmid: "{{ cloudinit.template_id | int  }}"
-    # newid: "{{ chosen_vmid }}"
-    # target: "{{ item.node }}"
-    # full: true
-    # cpu: "type=host"
-    # scsihw: "virtio-scsi-pci"
-    # machine: "q35"
-    # cores: "{{ item.cores }}"
-    # sockets: "{{ item.sockets }}"
-    # memory: "{{ item.mem_mb }}"
-    # balloon: 0
-    # onboot: true
-    # agent: 1
-    # hotplug: "network,disk,usb"
-    # scsi:
-    #   scsi0: "local-lvm:{{ item.disk_gb }}{{ ',ssd=1,discard=on' if item.ssd else '' }}"
-    # net:
-    #   net0: "virtio,bridge=vmbr0"
-    # ipconfig:
-    #   ipconfig0: "{{ item.ip }}/{{ network.cidr }},gw={{ network.gateway_ip }}"
-    # nameservers: "{{ network.nameservers }}"
-    # searchdomains: "{{ [network.domain] if network.domain is defined else omit }}"
-    # ciuser: "{{ cloudinit.ciuser }}"
-    # sshkeys: "{{ ssh_pubkey }}"
-    # tags: ['k3s','linux']
-    # state: present
+    cpu: "type=host"
+    scsihw: "virtio-scsi-pci"
+    machine: "q35"
+    agent: 1
+    onboot: true
+
+    cores: "{{ vm.cores | default(omit) }}"
+    sockets: "{{ vm.sockets | default(omit) }}"
+    memory: "{{ vm.mem_mb | default(omit) }}"
+
+    net:
+      net0: "virtio,bridge={{ cloudinit.bridge | default('vmbr0') }}"
+    ipconfig:
+      ipconfig0: "{{ vm.ip }}/{{ network.cidr }},gw={{ network.gateway_ip }}"
+    nameservers: "{{ (network.nameservers | join(' ')) if (network.nameservers is defined) else omit }}"
+    searchdomains: "{{ network.domain | default(omit) }}"
+    ciuser: "{{ cloudinit.ciuser | default(omit) }}"
+    sshkeys: "{{ ssh_pubkey | default(omit) }}"
+
+    state: present
+  loop: "{{ vms }}"
+  loop_control:
+    loop_var: vm
+    label: "{{ vm.hostname }} ({{ vm.ip }}) → {{ vm.node }}"
+  delegate_to: localhost
+
+
+# - name: Power on VMs
+#   community.proxmox.proxmox_kvm:
+#     api_host: "{{ proxmox.api_host }}"
+#     api_user: "{{ proxmox.api_user }}"
+#     api_token_id: "{{ proxmox.api_token_id }}"
+#     api_token_secret: "{{ proxmox.api_token_secret }}"
+#     validate_certs: "{{ proxmox.validate_certs | default(false) }}"
+#     node: "{{ item.node }}"
+#     name: "{{ item.hostname }}"
+#     state: started
+#   loop: "{{ vms }}"
+#   loop_control:
+#     loop_var: item
+#     label: "{{ item.hostname }}"
+#   delegate_to: localhost

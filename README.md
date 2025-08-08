@@ -5,11 +5,10 @@ Declarative approach to deploying proxmox VMs, installing k3s with metallb loadb
 
 ### Setup Dev Env
 
-* You can run `. scripts/initialize_project.sh` to initalize the project.<br> 
+* You can run `source scripts/initialize_project.sh` to initalize the project.<br> 
 * Requires the latest version of python.<br>
-* Initialize_project.sh will create a python13 venv if one is not found using pyenv.<br>
-* Initialize_project.sh will install all the required python libraries listed in `dependencies/python_requirements.txt` and ansible modules listed in `dependencies/ansible_modules.yml`.<br>
-* All ansible modules will be installed within the project.
+* Initialize_project.sh will create a python13 venv if one is not found, using pyenv.<br>
+* Initialize_project.sh will install all the required python libraries listed in `dependencies/python_requirements.txt` and ansible modules listed in `dependencies/ansible_modules.yml`.
 
 ### Ansible Basics
 
