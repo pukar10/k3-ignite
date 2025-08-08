@@ -11,27 +11,72 @@
 
 # Clones template from promxox1 to all hosts
 # inventory_hostname: name of current host exactly as it appears in your inventory file.
+# vm: looks at vms list, filters to only one whose vm.node matches current host, takes first match, stores it in vm.
 - name: Clone template to primary host
   delegate_to: proxmox1
   ansible.builtin.command: >
     qm clone 9000 {{ free_vmid }}
+    --target {{ vm.node }}
+    --name {{ vm.hostname }}
     --full 1
-    --name {{ inventory_hostname }}-vm
-    --target {{ inventory_hostname }}
     --storage local-lvm
+  vars:
+    vm: "{{ vms | selectattr('node', 'equalto', inventory_hostname) | first }}"
 
-# Runs on the current host, same host that is being iterated over.
-# hostvar: gives access to variables for specified host.
-# inventory_hostname: name of current host exactly as it appears in inventory file.
+# Configures cloned VM
+# Runs on the current host, host that is being iterated over.
+# vm: looks at vms list, filters to only one whose vm.node matches current host, takes first match, stores it in vm.
 - name: Configure CPU/RAM/NIC/agent + cloud-init user on target node
   delegate_to: "{{ inventory_hostname }}"
   ansible.builtin.command: >
     qm set {{ free_vmid }}
-    --cores 5
-    --sockets 1 --cpu host
-    --memory {{ hostvars[inventory_hostname].memory | default(default_memory) }}
-    --net0 virtio,bridge={{ bridge }}
+    --cores {{ vm.cores }}
+    --sockets {{ vm.sockets }} --cpu host
+    --memory {{ vm.memory }}
+    --net0 virtio,bridge=vmbr0
     --agent enabled=1
-    --ciuser {{ ciuser }}
+    --ciuser {{ cloudinit.ciuser }}
+  vars:
+    vm: "{{ vms | selectattr('node', 'equalto', inventory_hostname) | first }}"
 
+# Iterates through each host and resizes cloned VM's root disk (scsi0).
+# Selects vm in vms by matching vm.node with inventory_hostname.
+- name: Resize root disk (scsi0) on target node for cloned vm
+  delegate_to: "{{ inventory_hostname }}"
+  ansible.builtin.command: >
+    qm resize {{ free_vmid }} scsi0
+    {{ vm.disk_size }}G
+  vars:
+    vm: "{{ vms | selectattr('node', 'equalto', inventory_hostname) | first }}"
 
+# Just checks if ssh key exists on the proxmox host
+- name: Checks if ssh key exists on target host
+  delegate_to: "{{ inventory_hostname }}"
+  ansible.builtin.stat:
+    path: "{{ sshkey_path }}"
+  register: sshkey
+  failed_when: false
+
+# Injects the ssh key found on proxmox host onto the cloned VM
+- name: Injects ssh key from host to VM
+  when: sshkey.stat.exists
+  delegate_to: "{{ inventory_hostname }}"
+  ansible.builtin.command: >
+    qm set {{ free_vmid }} --sshkey {{ sshkey_path }}
+
+# Set static IP address if vm.ip is defined else set dhcp.
+- name: Configure networking via cloud-init (DHCP if no per-host ip var)
+  delegate_to: "{{ inventory_hostname }}"
+  ansible.builtin.command: >
+    qm set {{ vmid }}
+    --ipconfig0 {{
+      (vm.ip is defined)
+      | ternary('ip=' ~ vm.ip ~ '/' ~ network.cidr ~ ',gw=' ~ network.gateway_ip, 'ip=dhcp')
+    }}
+    --nameserver {{ network.nameserver }}
+  vars:
+    vm: "{{ vms | selectattr('node', 'equalto', inventory_hostname) | first }}"
+
+- name: Start VM
+  delegate_to: "{{ inventory_hostname }}"
+  ansible.builtin.command: "qm start {{ vmid }}"
