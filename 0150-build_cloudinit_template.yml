@@ -1,9 +1,0 @@
----
-- name: Download cloud image to each Proxmox host
-  hosts: proxmox_hosts
-  gather_facts: false
-  become: true
-  serial: 1
-  roles:
-    - cloudinit-download_cloud_image
-    - cloudinit-create_templates

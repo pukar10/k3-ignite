@@ -1,5 +1,0 @@
-proxmoxer
-requests
-jmespath
-netaddr
-paramiko

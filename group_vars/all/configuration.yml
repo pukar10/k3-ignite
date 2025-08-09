@@ -1,85 +1,14 @@
-# ==== Proxmox API ====
-# Use the proxmox_create_token.sh script to generate the api_token_id and api_token_secret
-proxmox:
-  api_host: "proxmox1.lab"
-  api_user: "ansible@pve"
-  api_user_password: "Subedi10!"
-  api_token_id: "ansible@pve!ansible"
-  api_token_secret: "9f290045-6c00-4912-ae1d-cc9184c57c6b"
-  validate_certs: false
+node_ssh_user: psubedi
 
-proxmox_hosts_ssh_user: root
-proxmox_hosts:
-  - hostname: proxmox1
-    ip: 192.168.1.30
-  - hostname: proxmox2
-    ip: 192.168.1.31
-  - hostname: proxmox3
-    ip: 192.168.1.32
-
-
-# ==== Cloudinit ====
-# Cloud image: Ubuntu 24.04 LTS
-# if img_file blank, derive from img_url basename under img_dir
-cloudinit:
-  img_url: "https://cloud-images.ubuntu.com/minimal/releases/noble/release/ubuntu-24.04-minimal-cloudimg-amd64.img"
-  img_name: ubuntu-24.04-minimal-cloudimg.img
-  template_name: ubuntu-24.04-minimal-cloud.img
-  ciuser: psubedi
-
-
-# ==== Network ====
-network:
-  cidr: 24
-  gateway_ip: 192.168.1.1
-  nameservers: [192.168.1.1, 1.1.1.1]
-  ntp_ip: 192.168.1.1
-  domain: lab
-
-
-# == Current specifications == 
-  # current image: ubuntu-24.04.2-live-server-amd64.iso
-
-  # proxmox1.storage: 200G (SSD)
-  # proxmox1.sockets: 1
-  # proxmox1.cores: 8
-  # proxmox1.mem: 15 GiB (8192 MiB)
-
-  # proxmox2.storage: 725G (SSD)
-  # proxmox2.sockets: 1
-  # proxmox2.cores: 8
-  # proxmox2.mem: 15 GiB
-
-  # proxmox3.storage: 8980G (HDD)
-  # proxmox3.sockets: 1
-  # proxmox3.cores: 8
-  # proxmox3.mem: 15 GiB
-
-# ===== VMs =====
-vms_ssh_user: psubedi
-vms:
-  - hostname: "k3-node-1"
+k3_nodes:
+  - name: k3-node-1
+    hostname: k3-node-1
     ip: 192.168.1.40
-    node: "proxmox1"
-    mem_mb: 8192
-    cores: 5
-    sockets: 1
-    disk_gb: 50
-    ssd: true
-  - hostname: "k3-node-2"
-    ip: 192.168.1.41
-    node: "proxmox2"
-    mem_mb: 8192
-    cores: 5
-    sockets: 1
-    disk_gb: 100
-    ssd: true
-  - hostname: "k3-node-3"
-    ip: 192.168.1.42
-    node: "proxmox3"
-    mem_mb: 8192
-    cores: 5
-    sockets: 1
-    disk_gb: 300
-    ssd: false
 
+  - name: k3-node-2
+    hostname: k3s-node-2
+    ip: 192.168.1.41
+
+  - name: k3-node-3
+    hostname: k3s-node-3
+    ip: 192.168.1.42

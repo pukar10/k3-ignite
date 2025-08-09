@@ -1,7 +1,0 @@
----
-- name: Clone one VM per Proxmox node from template (clone happens on first host)
-  hosts: proxmox_hosts
-  become: true
-  gather_facts: false
-  roles:
-    - proxmox-clone_vms
