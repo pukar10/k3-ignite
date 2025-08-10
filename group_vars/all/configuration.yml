@@ -4,9 +4,9 @@ k3_nodes:
     ip: 192.168.1.40
 
   - name: k3-node-2
-    hostname: k3s-node-2
+    hostname: k3-node-2
     ip: 192.168.1.41
 
   - name: k3-node-3
-    hostname: k3s-node-3
+    hostname: k3-node-3
     ip: 192.168.1.42

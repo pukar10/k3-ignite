@@ -1,10 +1,9 @@
-# Generated inventory
 [local]
-localhost   ansible_connection=local
+localhost ansible_connection=local
 
 [k3_nodes]
 {% for node in k3_nodes %}
-{{ node.ip }}   ansible_host={{ node.hostname }}
+{{ node.hostname }} ansible_host={{ node.ip }}
 {% endfor %}
 
 [k3_nodes:vars]

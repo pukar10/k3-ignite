@@ -1,2 +1,6 @@
 # Set hostnames: hostnamectl set-hostname k3-node-1
-
+- name: Set hostname for k3 node
+  hosts: k3_nodes
+  gather_facts: true
+  become: true
+  roles

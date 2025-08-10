@@ -2,7 +2,8 @@
 # base-set_hostname_set_ssh
 # base-install_ntp
 # base-disable_swap
-- name: Preconfigure roles to setup VMs
+
+- name: Preconfigure VMs before k3 install
   hosts: k3-nodes
   gather_facts: false
   roles:

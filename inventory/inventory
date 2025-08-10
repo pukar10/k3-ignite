@@ -1,11 +1,10 @@
-# Generated inventory
 [local]
-localhost   ansible_connection=local
+localhost ansible_connection=local
 
 [k3_nodes]
-192.168.1.40   ansible_host=k3-node-1
-192.168.1.41   ansible_host=k3s-node-2
-192.168.1.42   ansible_host=k3s-node-3
+k3-node-1 ansible_host=192.168.1.40
+k3-node-2 ansible_host=192.168.1.41
+k3-node-3 ansible_host=192.168.1.42
 
 [k3_nodes:vars]
 ansible_user=psubedi
