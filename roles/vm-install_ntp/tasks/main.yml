@@ -32,16 +32,15 @@
     update_cache: true
   become: true
 
-- name: Optionally manage /etc/chrony/chrony.conf
-  ansible.builtin.template:
-    src: chrony.conf.j2
-    dest: /etc/chrony/chrony.conf
-    owner: root
-    group: root
-    mode: "0644"
-  when: chrony_manage_config | bool
-  notify: Restart chrony
-  become: true
+# - name: Manage /etc/chrony/chrony.conf
+#   ansible.builtin.template:
+#     src: chrony.conf.j2
+#     dest: /etc/chrony/chrony.conf
+#     owner: root
+#     group: root
+#     mode: "0644"
+#   notify: Restart chrony
+#   become: true
 
 - name: Ensure chrony is enabled and running
   ansible.builtin.service:

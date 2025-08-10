@@ -4,6 +4,7 @@
 - name: Preconfigure VMs before k3 install
   hosts: k3_nodes
   gather_facts: false
+  serial: 1
   roles:
     - vm-set_hostname
-    - vm-install_ntp
+    # - vm-install_ntp

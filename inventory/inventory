@@ -8,3 +8,4 @@ k3-node-3 ansible_host=192.168.1.42
 
 [k3_nodes:vars]
 ansible_user=psubedi
+ansible_connection=ssh
