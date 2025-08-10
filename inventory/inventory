@@ -1,8 +1,11 @@
 # Generated inventory
 [local]
-localhost ansible_connection=local ansible_python_interpreter="/home/psubedi/.pyenv/versions/3.13.0/bin/python3.13"
+localhost   ansible_connection=local
 
 [k3_nodes]
-192.168.1.40 ansible_user=psubedi hostname=k3-node-1
-192.168.1.41 ansible_user=psubedi hostname=k3s-node-2
-192.168.1.42 ansible_user=psubedi hostname=k3s-node-3
+192.168.1.40   ansible_host=k3-node-1
+192.168.1.41   ansible_host=k3s-node-2
+192.168.1.42   ansible_host=k3s-node-3
+
+[k3_nodes:vars]
+ansible_user=psubedi
