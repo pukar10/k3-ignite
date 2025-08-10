@@ -14,7 +14,8 @@
   ansible.builtin.hostname:
     name: "{{ curr_node.hostname }}"
     use: systemd
+  register: hostname_result
 
 - name: Confirm hostname
   ansible.builtin.debug:
-    msg: "{{ inventory_hostname }} Hostname set to: {{ hostname_result.name }}"
+    msg: "Hostname set to: {{ hostname_result.name }} on node: {{ inventory_hostname }}"
