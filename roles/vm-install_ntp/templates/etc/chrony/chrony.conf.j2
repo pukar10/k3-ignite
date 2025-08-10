@@ -1,0 +1,16 @@
+# Managed by Ansible (optional)
+
+{# driftfile /var/lib/chrony/chrony.drift
+makestep 1.0 3
+rtcsync
+logdir /var/log/chrony
+
+{% for p in chrony_pools %}
+pool {{ p }} iburst
+{% endfor %}
+
+{% for net in chrony_allow %}
+allow {{ net }}
+{% endfor %}
+
+{{ chrony_extra_config }} #}

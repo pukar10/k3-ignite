@@ -5,5 +5,5 @@
   hosts: k3_nodes
   gather_facts: false
   roles:
-    - base-set_hostname
-    - 
+    - vm-set_hostname
+    - vm-install_ntp

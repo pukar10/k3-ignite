@@ -1,0 +1,68 @@
+---
+- name: Ensure apt cache is up to date
+  ansible.builtin.apt:
+    update_cache: true
+  become: true
+
+- name: Gather installed package facts
+  ansible.builtin.package_facts:
+    manager: auto
+  become: true
+
+- name: Disable timedatectl-managed NTP (prevents timesyncd re-enabling)
+  ansible.builtin.command: timedatectl set-ntp false
+  changed_when: false
+  failed_when: false
+  become: true
+
+- name: Stop/disable/mask systemd-timesyncd if present
+  ansible.builtin.systemd:
+    name: systemd-timesyncd
+    state: stopped
+    enabled: false
+    masked: true
+  when: "'systemd-timesyncd' in ansible_facts.packages"
+  failed_when: false
+  become: true
+
+- name: Install chrony
+  ansible.builtin.apt:
+    name: chrony
+    state: present
+    update_cache: true
+  become: true
+
+- name: Optionally manage /etc/chrony/chrony.conf
+  ansible.builtin.template:
+    src: chrony.conf.j2
+    dest: /etc/chrony/chrony.conf
+    owner: root
+    group: root
+    mode: "0644"
+  when: chrony_manage_config | bool
+  notify: Restart chrony
+  become: true
+
+- name: Ensure chrony is enabled and running
+  ansible.builtin.service:
+    name: chrony
+    state: started
+    enabled: true
+  become: true
+
+- name: One-time immediate step (safe even if already in sync)
+  ansible.builtin.command: chronyc -a makestep
+  when: chrony_immediate_sync | bool
+  changed_when: false
+  failed_when: false
+  become: true
+
+- name: Show tracking status
+  ansible.builtin.command: chronyc tracking
+  changed_when: false
+  register: chrony_tracking
+  become: true
+
+- name: Print tracking summary
+  ansible.builtin.debug:
+    msg: "{{ chrony_tracking.stdout }}"
