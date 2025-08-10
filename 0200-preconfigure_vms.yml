@@ -1,5 +1,3 @@
-# set static ip address (netplan)
-# base-set_hostname_set_ssh
 # base-install_ntp
 # base-disable_swap
 
@@ -7,4 +5,5 @@
   hosts: k3_nodes
   gather_facts: false
   roles:
-    - proxmox-set_hostname
+    - base-set_hostname
+    - 
