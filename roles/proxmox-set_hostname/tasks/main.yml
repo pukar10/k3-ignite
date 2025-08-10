@@ -1,6 +1,20 @@
 # Set hostnames: hostnamectl set-hostname k3-node-1
-- name: Set hostname for k3 node
-  hosts: k3_nodes
-  gather_facts: true
+
+- name: Find matching node
+  ansible.builtin.set_fact:
+    curr_node: "{{ k3_nodes | selectattr('name', 'equalto', inventory_hostname) | first }}"
+
+- name: Fail if no matching node is found
+  ansible.builtin.fail:
+    msg: "No match for {{ inventory_hostname }} in k3_nodes"
+  when: curr_node is not defined
+
+- name: Set hostname to k3_node.hostname
   become: true
-  roles
+  ansible.builtin.hostname:
+    name: "{{ curr_node.hostname }}"
+    use: systemd
+
+- name: Confirm hostname
+  ansible.builtin.debug:
+    msg: "{{ inventory_hostname }} Hostname set to: {{ hostname_result.name }}"

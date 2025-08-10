@@ -4,7 +4,7 @@
 # base-disable_swap
 
 - name: Preconfigure VMs before k3 install
-  hosts: k3-nodes
+  hosts: k3_nodes
   gather_facts: false
   roles:
     - proxmox-set_hostname
