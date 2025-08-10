@@ -1,2 +1,2 @@
 # Set hostnames: hostnamectl set-hostname k3-node-1
-# Copy ssh keys to each VM
+

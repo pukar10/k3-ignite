@@ -6,4 +6,4 @@
   hosts: k3-nodes
   gather_facts: false
   roles:
-    - 
+    - proxmox-set_hostname
