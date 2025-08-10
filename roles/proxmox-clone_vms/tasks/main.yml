@@ -1,8 +1,0 @@
----
-- name: List contents of /var/lib/vz/template/images
-  ansible.builtin.command: ls /var/lib/vz/template/images
-  register: images_list
-
-- name: Show directory contents
-  ansible.builtin.debug:
-    var: images_list.stdout_lines
