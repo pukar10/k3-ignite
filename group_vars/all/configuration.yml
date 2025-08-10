@@ -1,5 +1,3 @@
-node_ssh_user: psubedi
-
 k3_nodes:
   - name: k3-node-1
     hostname: k3-node-1
