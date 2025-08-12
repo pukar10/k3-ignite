@@ -1,0 +1,42 @@
+- name: Ensure curl is present
+  ansible.builtin.apt:
+    name: curl
+    state: present
+    update_cache: true
+
+- name: Install K3s server on PRIMARY node (cluster-init)
+  ansible.builtin.shell: |
+    set -e
+    curl -sfL https://get.k3s.io | \
+      INSTALL_K3S_EXEC="server --cluster-init --node-ip {{ k3s_primary_node_ip }} --write-kubeconfig-mode 644 {{ k3s_server_extra_args }}" \
+      sh -s -
+  args:
+    creates: /etc/systemd/system/k3s.service
+  when: inventory_hostname ==  k3s_primary_host
+
+- name: Enable & start k3s
+  ansible.builtin.systemd:
+    name: k3s
+    enabled: true
+    state: started
+
+- name: Wait for node-token to exist
+  ansible.builtin.wait_for:
+    path: /var/lib/rancher/k3s/server/node-token
+    timeout: 180
+
+- name: Read node-token (for joiners)
+  ansible.builtin.slurp:
+    src: /var/lib/rancher/k3s/server/node-token
+  register: k3s_token_b64
+
+- name: Publish token fact (available to other hosts via hostvars)
+  ansible.builtin.set_fact:
+    k3s_token: "{{ (k3s_token_b64.content | b64decode).strip() }}"
+
+- name: Wait for API on PRIMARY :6443
+  ansible.builtin.wait_for:
+    host: "{{ k3s_primary_node_ip }}"
+    port: 6443
+    timeout: 180
+  run_once: true

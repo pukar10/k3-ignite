@@ -1,0 +1,22 @@
+# pull the kubeconfig from the primary node and create something on the host machine?
+
+- name: Install hybrid k3 on PRIMARY node
+  hosts: "k3_nodes[0]"
+  gather_facts: false
+  become: true
+  roles:
+    - k3-primary_install-hybrid
+
+- name: Install hybrid k3 on remaining joiner nodes
+  hosts: "k3_nodes[1:]"
+  gather_facts: false
+  become: true
+  roles:
+    - k3-secondary_install-hybrid
+
+- name: Verify k3s install
+  hosts: k3_nodes
+  gather_facts: false
+  become: true
+  roles:
+    - k3-verify_k3s_install

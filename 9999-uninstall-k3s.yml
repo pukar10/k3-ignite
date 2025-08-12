@@ -1,0 +1,6 @@
+- name: Uninstall k3s for all nodes
+  hosts: k3_nodes
+  gather_facts: false
+  become: true
+  roles:
+    - k3-uninstall

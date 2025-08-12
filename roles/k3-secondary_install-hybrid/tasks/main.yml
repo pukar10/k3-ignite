@@ -1,0 +1,43 @@
+---
+- name: Ensure curl is installed
+  ansible.builtin.apt:
+    name: curl
+    state: present
+    update_cache: true
+
+- name: Ensure API on primary is reachable
+  ansible.builtin.wait_for:
+    host: "{{ k3s_primary_node_ip }}"
+    port: 6443
+    timeout: 180
+  run_once: true
+  delegate_to: localhost
+
+- name: Read node-token from primary
+  ansible.builtin.slurp:
+    src: /var/lib/rancher/k3s/server/node-token
+  register: k3s_token_b64
+  run_once: true
+  delegate_to: "{{ k3s_primary_node_ip }}"
+
+- name: Share token to all joiners
+  ansible.builtin.set_fact:
+    k3s_token: "{{ (k3s_token_b64.content | b64decode).strip() }}"
+  run_once: true
+
+- name: Install hybrid K3s on secondary nodes
+  ansible.builtin.shell: |
+    set -e
+    curl -sfL https://get.k3s.io | \
+      K3S_URL="https://{{ k3s_primary_node_ip }}:6443" \
+      K3S_TOKEN="{{ k3s_token }}" \
+      INSTALL_K3S_EXEC="server --node-ip {{ k3s_node_ip }} --write-kubeconfig-mode 644 {{ k3s_server_extra_args }}" \
+      sh -s -
+  args:
+    creates: /etc/systemd/system/k3s.service
+
+- name: Enable & start k3s
+  ansible.builtin.systemd:
+    name: k3s
+    enabled: true
+    state: started

@@ -1,0 +1,57 @@
+- name: Check for K3s server uninstall script
+  ansible.builtin.stat:
+    path: /usr/local/bin/k3s-uninstall.sh
+  register: k3s_uninstall
+
+- name: Run K3s server uninstall script (idempotent)
+  ansible.builtin.command: sh /usr/local/bin/k3s-uninstall.sh
+  when: k3s_uninstall.stat.exists
+  register: k3s_uninstall_run
+  changed_when: k3s_uninstall_run.rc == 0
+  failed_when: false
+
+- name: Stop and disable k3s service (fallback)
+  ansible.builtin.systemd:
+    name: k3s
+    state: stopped
+    enabled: false
+  failed_when: false
+
+- name: Try killall helper if present (removes iptables rules, CNI ifaces)
+  ansible.builtin.stat:
+    path: /usr/local/bin/k3s-killall.sh
+  register: k3s_killall
+
+- name: Run k3s-killall.sh
+  ansible.builtin.command: sh /usr/local/bin/k3s-killall.sh
+  when: k3s_killall.stat.exists
+  changed_when: true
+  failed_when: false
+
+- name: Remove common K3s files/dirs
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /etc/rancher
+    - /var/lib/rancher
+    - /var/lib/kubelet
+    - /run/k3s
+    - /usr/local/bin/k3s
+    - /usr/local/bin/k3s-killall.sh
+    - /usr/local/bin/k3s-uninstall.sh
+    - /etc/systemd/system/k3s.service
+    - /etc/systemd/system/k3s-agent.service
+  failed_when: false
+
+- name: Verify k3s binary is gone
+  ansible.builtin.command: which k3s
+  register: k3s_which
+  changed_when: false
+  failed_when: false
+
+- name: Report uninstall status
+  ansible.builtin.debug:
+    msg: >-
+      {{ 'k3s not found (uninstalled)' if k3s_which.rc != 0 else
+         'k3s still present at: ' ~ (k3s_which.stdout | default('')) }}

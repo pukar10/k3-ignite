@@ -1,0 +1,9 @@
+k3s_primary_host: "{{ groups['k3_nodes'][0] }}"
+
+k3s_primary_node_ip: "{{ hostvars[k3s_primary_host].ansible_host }}"
+
+k3s_node_ip: "{{ ansible_host | default(inventory_hostname) }}"
+
+k3s_server_extra_args: >-
+  --disable traefik 
+  --disable servicelb

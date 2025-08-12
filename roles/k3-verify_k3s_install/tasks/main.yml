@@ -1,0 +1,9 @@
+- name: Check k3s service state
+  ansible.builtin.systemd:
+    name: k3s
+  register: k3s_service
+
+- name: Fail if k3s service is not running
+  ansible.builtin.fail:
+    msg: "K3s service is not active on {{ inventory_hostname }}!"
+  when: k3s_service.status.ActiveState != "active"
