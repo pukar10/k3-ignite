@@ -1,5 +1,3 @@
-# pull the kubeconfig from the primary node and create something on the host machine?
-
 - name: Install hybrid k3 on PRIMARY node
   hosts: "k3_nodes[0]"
   gather_facts: false
