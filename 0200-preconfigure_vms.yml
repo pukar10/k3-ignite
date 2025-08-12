@@ -1,9 +1,11 @@
-# base-install_ntp
 # base-disable_swap
 
 - name: Preconfigure VMs before k3 install
   hosts: k3_nodes
   gather_facts: false
+  become: true
   roles:
     - vm-set_hostname
     - vm-install_ntp
+    - vm-disable_swap
+    - vm-disable_ufw

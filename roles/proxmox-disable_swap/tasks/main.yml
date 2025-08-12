@@ -1,1 +1,0 @@
-# Disable swap: sudo sed -i '/ swap / s/^/#/' /etc/fstab

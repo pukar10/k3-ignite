@@ -1,0 +1,11 @@
+- name: Stop and disable UFW
+  ansible.builtin.service:
+    name: ufw
+    state: stopped
+    enabled: false
+  failed_when: false
+
+- name: Ensure UFW is disabled (idempotent)
+  ansible.builtin.command: ufw --force disable
+  changed_when: "'Firewall stopped' in (stdout | default(''))"
+  failed_when: false
