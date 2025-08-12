@@ -1,0 +1,96 @@
+- name: Slurp kubeconfig from primary
+  ansible.builtin.slurp:
+    src: "{{ kubeconfig_remote_path }}"
+  register: kcfg_b64
+  become: true
+  delegate_to: "{{ k3s_primary_host }}"
+
+- name: Parse kubeconfig YAML
+  ansible.builtin.set_fact:
+    kcfg_src: "{{ (kcfg_b64.content | b64decode) | from_yaml }}"
+
+# Compose 'homelab' entries pointing to https://<primary>:6443
+- name: Build homelab entries
+  ansible.builtin.set_fact:
+    _homelab_cluster:
+      name: "{{ kubeconfig_context_name }}"
+      cluster: "{{ kcfg_src.clusters[0].cluster
+                   | combine({'server': 'https://' ~ k3s_primary_node_ip ~ ':6443'}) }}"
+    _homelab_user:
+      name: "{{ kubeconfig_context_name }}"
+      user: "{{ kcfg_src.users[0].user }}"
+    _homelab_context:
+      name: "{{ kubeconfig_context_name }}"
+      context:
+        cluster: "{{ kubeconfig_context_name }}"
+        user: "{{ kubeconfig_context_name }}"
+
+- name: Ensure ~/.kube exists
+  ansible.builtin.file:
+    path: "{{ kubeconfig_local_path | dirname }}"
+    state: directory
+    mode: "0700"
+  delegate_to: localhost
+
+- name: Check for existing kubeconfig
+  ansible.builtin.stat:
+    path: "{{ kubeconfig_local_path }}"
+  register: kcfg_old_stat
+  delegate_to: localhost
+
+- name: Load existing kubeconfig
+  when: kcfg_old_stat.stat.exists
+  ansible.builtin.slurp:
+    src: "{{ kubeconfig_local_path }}"
+  register: kcfg_old_b64
+  delegate_to: localhost
+
+- name: Parse existing kubeconfig (or empty)
+  ansible.builtin.set_fact:
+    kcfg_old: "{{ (kcfg_old_b64.content | b64decode | from_yaml) if kcfg_old_stat.stat.exists else {} }}"
+  delegate_to: localhost
+
+# Merge: drop any prior 'homelab' entries, then append new ones
+- name: Build merged kubeconfig
+  ansible.builtin.set_fact:
+    kcfg_merged:
+      apiVersion: "v1"
+      kind: "Config"
+      preferences: "{{ kcfg_old.preferences | default({}) }}"
+      clusters: >-
+        {{
+          (kcfg_old.clusters | default([]))
+          | rejectattr('name', 'equalto', kubeconfig_context_name) | list
+          + [ _homelab_cluster ]
+        }}
+      users: >-
+        {{
+          (kcfg_old.users | default([]))
+          | rejectattr('name', 'equalto', kubeconfig_context_name) | list
+          + [ _homelab_user ]
+        }}
+      contexts: >-
+        {{
+          (kcfg_old.contexts | default([]))
+          | rejectattr('name', 'equalto', kubeconfig_context_name) | list
+          + [ _homelab_context ]
+        }}
+      current-context: >-
+        {{
+          kubeconfig_context_name if kubeconfig_set_current | bool
+          else (kcfg_old['current-context'] | default(kubeconfig_context_name))
+        }}
+  delegate_to: localhost
+
+# Save merged config (keeps others, adds/updates 'homelab')
+- name: Write merged kubeconfig
+  ansible.builtin.copy:
+    dest: "{{ kubeconfig_local_path }}"
+    content: "{{ kcfg_merged | to_nice_yaml(indent=2) }}"
+    mode: "0600"
+  delegate_to: localhost
+
+- name: Summary
+  ansible.builtin.debug:
+    msg: "Merged context '{{ kubeconfig_context_name }}' into {{ kubeconfig_local_path }} (current-context={{ kcfg_merged['current-context'] }})."
+  delegate_to: localhost

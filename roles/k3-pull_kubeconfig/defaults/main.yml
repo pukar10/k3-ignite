@@ -1,0 +1,16 @@
+k3s_group: "k3_nodes"
+
+k3s_primary_host: "{{ groups[k3s_group][0] }}"
+k3s_primary_node_ip: "{{ hostvars[k3s_primary_host].ansible_host }}"
+
+# Remote kubeconfig path on primary
+kubeconfig_remote_path: "/etc/rancher/k3s/k3s.yaml"
+
+# Local kubeconfig to merge into
+kubeconfig_local_path: "{{ lookup('env','HOME') + '/.kube/config' }}"
+
+# Name for cluster/user/context
+kubeconfig_context_name: "homelab"
+
+# Set the merged context as current-context
+kubeconfig_set_current: true

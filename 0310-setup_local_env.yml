@@ -1,0 +1,6 @@
+- name: Setup local dev env
+  hosts: localhost
+  gather_facts: false
+  become: true
+  roles:
+    - k3-pull_kubeconfig
