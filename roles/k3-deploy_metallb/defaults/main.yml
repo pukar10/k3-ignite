@@ -1,0 +1,16 @@
+---
+metallb_namespace: "metallb"
+metallb_release: "metallb"
+metallb_chart: "metallb/metallb"   # helm repo below
+metallb_repo_name: "metallb"
+metallb_repo_url: "https://metallb.github.io/metallb"
+metallb_version: ""                # Ex: "1.14.5" or leave blank for latest
+
+# Address pool (pick unused IPs on your LAN)
+metallb_pool_name: "homelab-pool"
+metallb_addresses:
+  - "192.168.1.230-192.168.1.250"
+
+# Optional: extra args for kubectl/helm (e.g., set context)
+kubectl_args: "--context homelab"         # e.g., "--context homelab"
+helm_args: "--kube-context homelab"       # e.g., "--kube-context homelab"

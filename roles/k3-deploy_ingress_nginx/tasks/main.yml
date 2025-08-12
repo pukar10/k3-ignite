@@ -1,0 +1,42 @@
+---
+- name: Ensure namespace exists
+  ansible.builtin.shell: |
+    kubectl {{ kubectl_args }} get ns {{ ingress_namespace }} >/dev/null 2>&1 \
+    || kubectl {{ kubectl_args }} create ns {{ ingress_namespace }}
+  changed_when: false
+
+- name: Add/update ingress-nginx helm repo
+  ansible.builtin.shell: |
+    helm repo add {{ ingress_repo_name }} {{ ingress_repo_url }} >/dev/null 2>&1 || true
+    helm repo update {{ helm_args }}
+  changed_when: false
+
+# Build optional service annotation flag for MetalLB pool
+- name: Compose annotation flag (if pool set)
+  ansible.builtin.set_fact:
+    _svc_pool_flag: >-
+      {{ '--set controller.service.annotations."metallb\\.io/address-pool"=' ~ ingress_metallb_pool
+         if ingress_metallb_pool | length > 0 else '' }}
+
+- name: Install/upgrade ingress-nginx
+  ansible.builtin.shell: |
+    helm upgrade --install {{ ingress_release }} {{ ingress_chart }} \
+      --namespace {{ ingress_namespace }} \
+      --create-namespace \
+      --set controller.service.type={{ ingress_service_type }} \
+      --set controller.service.externalTrafficPolicy={{ ingress_external_traffic_policy }} \
+      --set controller.ingressClassResource.name=nginx \
+      --set controller.ingressClassResource.default={{ 'true' if ingress_class_default else 'false' }} \
+      {{ _svc_pool_flag }} \
+      {{ ('--version ' ~ ingress_version) if ingress_version else '' }} \
+      {{ helm_args }}
+  register: helm_ing
+  changed_when: "'Release ' in (helm_ing.stdout | default('')) or 'deployed' in (helm_ing.stdout | default(''))"
+
+- name: Wait for ingress controller rollout
+  ansible.builtin.shell: kubectl {{ kubectl_args }} -n {{ ingress_namespace }} rollout status deploy/ingress-nginx-controller --timeout=180s
+  changed_when: false
+
+- name: Show ingress Service (should have EXTERNAL-IP)
+  ansible.builtin.shell: kubectl {{ kubectl_args }} -n {{ ingress_namespace }} get svc -l app.kubernetes.io/component=controller -o wide
+  changed_when: false

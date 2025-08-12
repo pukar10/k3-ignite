@@ -1,0 +1,22 @@
+---
+ingress_namespace: "ingress-nginx"
+ingress_release: "ingress-nginx"
+ingress_chart: "ingress-nginx/ingress-nginx"
+ingress_repo_name: "ingress-nginx"
+ingress_repo_url: "https://kubernetes.github.io/ingress-nginx"
+ingress_version: ""   # Ex: "4.11.2" or blank for latest
+
+# Use MetalLB: make Service type LoadBalancer and preserve client IPs
+ingress_service_type: "LoadBalancer"
+ingress_external_traffic_policy: "Local"
+
+# Optional: if you want to target a specific MetalLB pool, set name here.
+# Leave empty to let MetalLB pick automatically.
+ingress_metallb_pool: ""   # Ex: "homelab-pool"
+
+# Make 'nginx' the default IngressClass
+ingress_class_default: true
+
+# Optional args
+kubectl_args: "--context homelab"
+helm_args: "--kube-context homelab"

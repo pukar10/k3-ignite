@@ -1,0 +1,14 @@
+---
+- name: Deploy a simple metalLB load balancer onto the cluster
+  hosts: local
+  gather_facts: false
+  vars:
+    kubectl_args: "--context homelab"
+    helm_args: "--kube-context homelab"
+  roles:
+    - role: k3-deploy_metallb
+      vars:
+        kubectl_args: "--context homelab"
+        helm_args: "--kube-context homelab"
+        metallb_addresses:
+          - "192.168.1.230-192.168.1.250"

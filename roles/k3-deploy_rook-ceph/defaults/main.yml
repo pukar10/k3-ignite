@@ -1,0 +1,37 @@
+cluster_values_path: "{{ lookup('env','HOME') }}/.rook-ceph/cluster-values.yaml"
+
+# Kube auth
+rook_kubeconfig: "{{ lookup('env', 'KUBECONFIG') | default('~/.kube/config', true) }}"
+rook_context: ""  # Ex: "homelab" (empty = current context)
+
+# Chart settings (pin if you want)
+rook_repo: https://charts.rook.io/release
+rook_operator_chart: rook-ceph
+rook_cluster_chart: rook-ceph-cluster
+rook_namespace: rook-ceph
+rook_operator_version: ""   # Ex: "v1.15.6" or empty for latest
+rook_cluster_version: ""    # usually match operator; blank = latest
+
+# Cluster spec (keep this conservative by default)
+rook_data_dir: /var/lib/rook
+rook_mon_count: 2
+rook_dashboard: true
+
+# Storage setup:
+# Safer default: don't claim every disk automatically.
+rook_use_all_nodes: false
+rook_use_all_devices: false
+rook_device_filter: ""   # e.g. "^sd[b-z]" (optional)
+rook_nodes: []           # Optional explicit device mapping:
+# rook_nodes:
+#   - name: k3-node-1
+#     devices: ["/dev/sdb", "/dev/sdc"]
+#   - name: k3-node-2
+#     devices: ["/dev/sdb"]
+
+# Default StorageClass (RBD)
+rook_make_default_sc: true
+rook_blockpool_name: replicapool
+rook_sc_name: rook-ceph-block
+rook_rbd_fs: xfs
+rook_replica_size: 3

@@ -1,0 +1,10 @@
+---
+- name: Install MetalLB and ingress-nginx
+  hosts: local
+  gather_facts: false
+  roles:
+    - role: k3-deploy_ingress_nginx
+      vars:
+        kubectl_args: "--context homelab"
+        helm_args: "--kube-context homelab"
+        ingress_metallb_pool: "" 

@@ -1,0 +1,13 @@
+- name: Install Rook-Ceph on K3s
+  hosts: local
+  gather_facts: false
+  vars:
+    rook_context: "homelab"
+    rook_use_all_nodes: false
+    rook_nodes:
+      - name: k3-node-1
+        devices: ["/dev/vda"]
+      - name: k3-node-2
+        devices: ["/dev/vda"]
+  roles:
+    - k3-deploy_rook-ceph

@@ -1,0 +1,56 @@
+operatorNamespace: "{{ rook_namespace }}"
+
+cephClusterSpec:
+  dataDirHostPath: "{{ rook_data_dir }}"
+  mon:
+    count: {{ rook_mon_count }}
+    allowMultiplePerNode: false
+  dashboard:
+    enabled: {{ rook_dashboard | bool | to_json }}
+  crashCollector:
+    disable: false
+
+  {# ---- Build storage map safely, then dump as YAML ---- #}
+  {% set storage = {
+      'useAllNodes': rook_use_all_nodes | bool,
+      'useAllDevices': rook_use_all_devices | bool
+    } %}
+  {% if rook_device_filter %}
+  {%   set _ = storage.update({'deviceFilter': rook_device_filter}) %}
+  {% endif %}
+  {% if (not rook_use_all_devices) and rook_nodes %}
+    {% set nodes_list = [] %}
+    {% for n in rook_nodes %}
+      {% set node = {'name': n.name} %}
+      {% if n.devices is defined and (n.devices | length) > 0 %}
+        {% set devs = [] %}
+        {% for d in n.devices %}
+          {% set _ = devs.append({'name': (d | regex_replace('^/dev/', '')) }) %}
+        {% endfor %}
+        {% set _ = node.update({'devices': devs}) %}
+      {% endif %}
+      {% set _ = nodes_list.append(node) %}
+    {% endfor %}
+    {% set _ = storage.update({'nodes': nodes_list}) %}
+  {% endif %}
+
+  storage:
+{{ storage | to_nice_yaml(indent=2) | indent(4, True) }}
+
+cephBlockPools:
+  - name: "{{ rook_blockpool_name }}"
+    spec:
+      replicated:
+        size: {{ rook_replica_size }}
+      failureDomain: host
+    storageClass:
+      enabled: true
+      name: "{{ rook_sc_name }}"
+      isDefault: {{ rook_make_default_sc | bool | to_json }}
+      reclaimPolicy: Delete
+      allowVolumeExpansion: true
+      parameters:
+        csi.storage.k8s.io/fstype: "{{ rook_rbd_fs }}"
+        imageFeatures: layering
+        pool: "{{ rook_blockpool_name }}"
+      mountOptions: []

@@ -1,0 +1,83 @@
+---
+- name: Verify we can reach the cluster
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Node
+    context: "{{ rook_context | default(omit) }}"
+    kubeconfig: "{{ rook_kubeconfig }}"
+  register: _nodes
+
+- name: Add Rook Helm repo
+  kubernetes.core.helm_repository:
+    name: rook-release
+    repo_url: "{{ rook_repo }}"
+
+- name: Install/upgrade Rook-Ceph operator (with CRDs)
+  kubernetes.core.helm:
+    name: rook-ceph
+    chart_ref: rook-release/{{ rook_operator_chart }}
+    chart_version: "{{ rook_operator_version | default(omit, true) }}"
+    release_namespace: "{{ rook_namespace }}"
+    create_namespace: true
+    kubeconfig: "{{ rook_kubeconfig }}"
+    context: "{{ rook_context | default(omit) }}"
+    wait: true
+    timeout: 600s
+    values:
+      crds:
+        enabled: true
+      csi:
+        enableRbdDriver: true
+        enableCephfsDriver: true
+
+- name: Wait for operator deployment to be ready
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    kind: Deployment
+    namespace: "{{ rook_namespace }}"
+    name: rook-ceph-operator
+    kubeconfig: "{{ rook_kubeconfig }}"
+    context: "{{ rook_context | default(omit) }}"
+  register: _op
+  until: _op.resources | length > 0 and (_op.resources[0].status.readyReplicas | default(0)) | int >= 1
+  retries: 30
+  delay: 10
+
+- name: Ensure cluster values dir exists
+  ansible.builtin.file:
+    path: "{{ cluster_values_path | dirname }}"
+    state: directory
+    mode: "0755"
+
+- name: Render cluster values
+  ansible.builtin.template:
+    src: cluster-values.yml.j2
+    dest: "{{ cluster_values_path }}"
+    mode: "0644"
+
+- name: Install/upgrade Rook-Ceph cluster
+  kubernetes.core.helm:
+    name: rook-ceph-cluster
+    chart_ref: rook-release/{{ rook_cluster_chart }}
+    chart_version: "{{ rook_cluster_version | default(omit, true) }}"
+    release_namespace: "{{ rook_namespace }}"
+    kubeconfig: "{{ rook_kubeconfig }}"
+    context: "{{ rook_context | default(omit) }}"
+    wait: true
+    timeout: 1200s
+    values_files:
+      - "{{ cluster_values_path }}"
+
+# Optional: wait until CephCluster is Ready
+- name: Wait for CephCluster to be Ready
+  kubernetes.core.k8s_info:
+    api_version: ceph.rook.io/v1
+    kind: CephCluster
+    namespace: "{{ rook_namespace }}"
+    name: rook-ceph
+    kubeconfig: "{{ rook_kubeconfig }}"
+    context: "{{ rook_context | default(omit) }}"
+  register: _cc
+  until: _cc.resources | length > 0 and (_cc.resources[0].status.phase | default('')) == "Ready"
+  retries: 60
+  delay: 10
