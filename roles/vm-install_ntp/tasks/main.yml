@@ -51,7 +51,6 @@
 
 - name: One-time immediate step (safe even if already in sync)
   ansible.builtin.command: chronyc -a makestep
-  when: chrony_immediate_sync | bool
   changed_when: false
   failed_when: false
   become: true

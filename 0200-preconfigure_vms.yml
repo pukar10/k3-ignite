@@ -6,4 +6,4 @@
   gather_facts: false
   roles:
     - vm-set_hostname
-    # - vm-install_ntp
+    - vm-install_ntp
