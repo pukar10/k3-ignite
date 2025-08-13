@@ -19,7 +19,6 @@
       {{ helm_args }}
   changed_when: "'Release ' in (stdout | default('')) or 'deployed' in (stdout | default(''))"
 
-# Create the pool + L2Advertisement
 - name: Build MetalLB pool + L2Advertisement
   ansible.builtin.set_fact:
     metallb_pool_doc:
