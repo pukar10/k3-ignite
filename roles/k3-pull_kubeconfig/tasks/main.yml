@@ -30,25 +30,21 @@
     path: "{{ kubeconfig_local_path | dirname }}"
     state: directory
     mode: "0700"
-  delegate_to: localhost
 
 - name: Check for existing kubeconfig
   ansible.builtin.stat:
     path: "{{ kubeconfig_local_path }}"
   register: kcfg_old_stat
-  delegate_to: localhost
 
 - name: Load existing kubeconfig
   when: kcfg_old_stat.stat.exists
   ansible.builtin.slurp:
     src: "{{ kubeconfig_local_path }}"
   register: kcfg_old_b64
-  delegate_to: localhost
 
 - name: Parse existing kubeconfig (or empty)
   ansible.builtin.set_fact:
     kcfg_old: "{{ (kcfg_old_b64.content | b64decode | from_yaml) if kcfg_old_stat.stat.exists else {} }}"
-  delegate_to: localhost
 
 # Merge: drop any prior 'homelab' entries, then append new ones
 - name: Build merged kubeconfig
@@ -80,7 +76,6 @@
           kubeconfig_context_name if kubeconfig_set_current | bool
           else (kcfg_old['current-context'] | default(kubeconfig_context_name))
         }}
-  delegate_to: localhost
 
 # Save merged config (keeps others, adds/updates 'homelab')
 - name: Write merged kubeconfig
@@ -88,9 +83,7 @@
     dest: "{{ kubeconfig_local_path }}"
     content: "{{ kcfg_merged | to_nice_yaml(indent=2) }}"
     mode: "0600"
-  delegate_to: localhost
 
 - name: Summary
   ansible.builtin.debug:
     msg: "Merged context '{{ kubeconfig_context_name }}' into {{ kubeconfig_local_path }} (current-context={{ kcfg_merged['current-context'] }})."
-  delegate_to: localhost
