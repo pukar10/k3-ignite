@@ -5,6 +5,8 @@ localhost ansible_connection=local
 k3-node-1 ansible_host=192.168.1.40
 k3-node-2 ansible_host=192.168.1.41
 k3-node-3 ansible_host=192.168.1.42
+k3-node-4 ansible_host=192.168.1.43
+k3-node-5 ansible_host=192.168.1.44
 
 [k3_nodes:vars]
 ansible_user=psubedi

@@ -10,3 +10,11 @@ k3_nodes:
   - name: k3-node-3
     hostname: k3-node-3
     ip: 192.168.1.42
+  
+  - name: k3-node-4
+    hostname: k3-node-4
+    ip: 192.168.1.43
+
+  - name: k3-node-5
+    hostname: k3-node-5
+    ip: 192.168.1.44
