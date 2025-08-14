@@ -1,0 +1,3 @@
+rook_context: "homelab"
+rook_namespace: "rook-ceph"
+rook_kubeconfig: "~/.kube/config"  # "{{ kubeconfig_local_path }}"

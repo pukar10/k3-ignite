@@ -1,0 +1,10 @@
+---
+- name: Uninstall Rook-Ceph from K3s
+  hosts: local
+  gather_facts: false
+  vars:
+    rook_context: "homelab"
+    rook_namespace: "rook-ceph"
+    rook_kubeconfig: "~/.kube/config"
+  roles:
+    - k3-uninstall_rook-ceph

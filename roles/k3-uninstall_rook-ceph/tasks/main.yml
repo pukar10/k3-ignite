@@ -1,0 +1,110 @@
+---
+- name: Remove Rook-Ceph cluster Helm release
+  kubernetes.core.helm:
+    name: rook-ceph-cluster
+    release_namespace: "{{ rook_namespace }}"
+    state: absent
+    kubeconfig: "{{ rook_kubeconfig }}"
+    context: "{{ rook_context }}"
+  ignore_errors: true
+
+- name: Remove Rook-Ceph operator Helm release
+  kubernetes.core.helm:
+    name: rook-ceph
+    release_namespace: "{{ rook_namespace }}"
+    state: absent
+    kubeconfig: "{{ rook_kubeconfig }}"
+    context: "{{ rook_context }}"
+  ignore_errors: true
+
+- name: Remove CephCluster CR (if still exists)
+  kubernetes.core.k8s:
+    state: absent
+    api_version: ceph.rook.io/v1
+    kind: CephCluster
+    name: rook-ceph
+    namespace: "{{ rook_namespace }}"
+    kubeconfig: "{{ rook_kubeconfig }}"
+    context: "{{ rook_context }}"
+  ignore_errors: true
+
+- name: Delete all PVCs in rook-ceph namespace
+  kubernetes.core.k8s:
+    state: absent
+    api_version: v1
+    kind: PersistentVolumeClaim
+    namespace: "{{ rook_namespace }}"
+    kubeconfig: "{{ rook_kubeconfig }}"
+    context: "{{ rook_context }}"
+  ignore_errors: true
+
+- name: Delete rook-ceph namespace
+  kubernetes.core.k8s:
+    state: absent
+    api_version: v1
+    kind: Namespace
+    name: "{{ rook_namespace }}"
+    kubeconfig: "{{ rook_kubeconfig }}"
+    context: "{{ rook_context }}"
+  ignore_errors: true
+
+- name: Check if namespace still exists / terminating
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Namespace
+    name: "{{ rook_namespace }}"
+    kubeconfig: "{{ rook_kubeconfig }}"
+    context: "{{ rook_context | default(omit) }}"
+  register: _ns
+  failed_when: false
+  changed_when: false
+
+- name: Force-finalize namespace (last resort)
+  ansible.builtin.shell: >
+    {{ _kubecli.stdout | trim }} --kubeconfig {{ rook_kubeconfig }}
+    {% if rook_context is defined %}--context {{ rook_context }}{% endif %}
+    get ns {{ rook_namespace }} -o json
+    | python3 -c 'import sys,json; d=json.load(sys.stdin); d["spec"]["finalizers"]=[]; print(json.dumps(d))'
+    | {{ _kubecli.stdout | trim }} --kubeconfig {{ rook_kubeconfig }}
+    {% if rook_context is defined %}--context {{ rook_context }}{% endif %}
+    replace --raw "/api/v1/namespaces/{{ rook_namespace }}/finalize" -f -
+  args:
+    executable: /bin/bash
+  when: _ns.resources is defined and
+        (_ns.resources | length) > 0 and
+        ((_ns.resources[0].status.phase | default('')) == 'Terminating')
+
+- name: Remove leftover CRDs
+  kubernetes.core.k8s:
+    state: absent
+    api_version: apiextensions.k8s.io/v1
+    kind: CustomResourceDefinition
+    name: "{{ item }}"
+    kubeconfig: "{{ rook_kubeconfig }}"
+    context: "{{ rook_context }}"
+  loop:
+    - cephclusters.ceph.rook.io
+    - cephblockpools.ceph.rook.io
+    - cephfilesystems.ceph.rook.io
+    - cephobjectstores.ceph.rook.io
+    - cephobjectstoreusers.ceph.rook.io
+    - cephblockpoolradosnamespaces.ceph.rook.io
+    - cephclients.ceph.rook.io
+    - cephfilesystemmirrors.ceph.rook.io
+    - cephnfses.ceph.rook.io
+    - cephobjectrealms.ceph.rook.io
+    - cephobjectzonegroups.ceph.rook.io
+    - cephobjectzones.ceph.rook.io
+    - cephrbdmirrors.ceph.rook.io
+  ignore_errors: true
+
+- name: Verify namespace is gone (or no longer terminating)
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Namespace
+    name: "{{ rook_namespace }}"
+    kubeconfig: "{{ rook_kubeconfig }}"
+    context: "{{ rook_context | default(omit) }}"
+  register: _final_ns
+  failed_when: false
+  changed_when: false
