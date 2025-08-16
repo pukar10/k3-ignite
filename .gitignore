@@ -2,3 +2,4 @@
 .python-version
 .ansible/
 group_vars/all/configuration.yml
+inventory/inventory
