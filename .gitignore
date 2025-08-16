@@ -1,3 +1,4 @@
 .venv/
 .python-version
 .ansible/
+group_vars/all/configuration.yml
