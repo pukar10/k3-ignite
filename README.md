@@ -1,6 +1,9 @@
 # k3-automation
 Declarative approach to deploying proxmox VMs, installing k3s with metallb loadbalancer, nginx instead of traefik and rook-ceph using ansible-playbooks for my homelab.
 
+## To Do
+- [ ] Wrapper playbook to run all playbooks to deploy and bootstrap cluster
+
 ## Getting started
 
 `group_vars/all/` - files that declare variables used in all playbooks.
