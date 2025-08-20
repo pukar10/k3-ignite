@@ -1,12 +1,12 @@
 ---
 - name: Generate inventory
-  import_playbook: 0100-generate-inventory.yml
+  import_playbook: 0100-generate_inventory.yml
 
 - name: Preconfigure VMs
-  import_playbook: 0200-preconfigure-vms.yml
+  import_playbook: 0200-preconfigure_vms.yml
 
 - name: Install k3s on all nodes
-  import_playbook: 0300-install-k3s.yml
+  import_playbook: 0300-install_k3s.yml
 
 - name: Setup local env
   import_playbook: 0310-setup_local_env.yml
