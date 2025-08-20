@@ -1,4 +1,4 @@
-# k3-automation
+# k3-aute
 Declarative approach to deploying proxmox VMs, installing k3s with metallb loadbalancer, nginx instead of traefik and rook-ceph using ansible-playbooks for my homelab.
 
 ## To Do
