@@ -15,7 +15,7 @@ Declarative approach to deploying proxmox VMs, installing k3s with metallb loadb
 ## Deployment
 
 1. Copy `configuration.yml.template` to `configuration.yml` and fill out.
-2. `ansible-playbook -K 0100-generate_inventory.yml` - generates the inventory file. 
-3. `ansible-playbook -K 0200-preconfigure_vms.yml` - configures the VMs before k3s is installed.
-4. `ansible-playbook -K 0300-install_k3.yml` - Installs minimal K3 onto all the nodes and joins them.
-5. `ansible-playbook -K 0310-setup_local_env.yml` - Pulls kubeconfig to localhost
+2. `ansible-playbook 0100-generate_inventory.yml` - generates the inventory file. 
+3. `ansible-playbook 0200-preconfigure_vms.yml` - configures the VMs before k3s is installed.
+4. `ansible-playbook 0300-install_k3.yml` - Installs minimal K3 onto all the nodes and joins them.
+5. `ansible-playbook 0310-setup_local_env.yml` - Pulls kubeconfig to localhost
