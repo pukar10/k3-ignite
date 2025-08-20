@@ -6,6 +6,7 @@
     update_cache: true
 
 - name: Ensure API on primary is reachable
+  become: false
   ansible.builtin.wait_for:
     host: "{{ k3s_primary_node_ip }}"
     port: 6443
